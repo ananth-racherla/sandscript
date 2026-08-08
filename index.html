@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sandscript</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background:#111; color:#ccc; font-family:system-ui,sans-serif; display:flex; height:100vh; overflow:hidden; font-size:13px; }
+
+/* ── panel ── */
+#panel { width:300px; min-width:300px; background:#1a1a1a; border-right:1px solid #252525; display:flex; flex-direction:column; overflow:hidden; }
+
+/* panel tabs */
+#panel-tabs { display:flex; border-bottom:1px solid #252525; }
+.ptab { flex:1; padding:9px 4px; background:none; border:none; color:#555; cursor:pointer; font-size:0.75rem; letter-spacing:0.05em; transition:color .15s,border-color .15s; border-bottom:2px solid transparent; }
+.ptab:hover { color:#aaa; }
+.ptab.active { color:#c8a06a; border-bottom-color:#c8a06a; }
+
+/* panel body — each tab content */
+.tab-body { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.tab-body.active { display:flex; }
+
+/* ── gallery tab ── */
+#gallery-scroll { flex:1; overflow-y:auto; padding:8px; }
+#gallery-scroll::-webkit-scrollbar { width:4px; }
+#gallery-scroll::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
+.gallery-cat { font-size:0.65rem; letter-spacing:0.12em; text-transform:uppercase; color:#444; padding:10px 4px 5px; }
+.gallery-cat:first-child { padding-top:2px; }
+.gallery-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:2px; }
+.preset-card { background:#1f1f1f; border:1px solid #2a2a2a; border-radius:5px; padding:8px 9px; cursor:pointer; text-align:left; transition:background .15s,border-color .15s; }
+.preset-card:hover { background:#252525; border-color:#3a2a18; }
+.preset-card.active { border-color:#c8a06a; background:#221a0e; }
+.preset-card .pc-name { font-size:0.8rem; color:#ccc; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.preset-card .pc-desc { font-size:0.68rem; color:#555; margin-top:2px; line-height:1.35; }
+
+/* symmetry row in gallery */
+#gallery-sym { padding:8px 10px; border-top:1px solid #222; }
+#gallery-sym .row { display:flex; align-items:center; gap:8px; }
+#gallery-sym label { font-size:0.72rem; color:#666; flex:0 0 auto; }
+#gallery-sym input[type=range] { flex:1; accent-color:#c8a06a; }
+#gallery-sym span { font-size:0.72rem; color:#c8a06a; min-width:14px; text-align:right; }
+#gallery-sym .hint { font-size:0.66rem; color:#555; margin-top:4px; line-height:1.3; }
+
+/* ── custom tab ── */
+#type-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:8px; border-bottom:1px solid #252525; }
+.type-btn { background:#222; color:#777; border:1px solid #2e2e2e; border-radius:4px; padding:5px 2px; cursor:pointer; font-size:0.67rem; text-align:center; transition:background .15s,color .15s; }
+.type-btn:hover { background:#2a2a2a; color:#bbb; }
+.type-btn.active { background:#2d2010; color:#c8a06a; border-color:#5a3a10; }
+
+#params-area { flex:1; overflow-y:auto; padding:8px 12px; }
+#params-area::-webkit-scrollbar { width:4px; }
+#params-area::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
+.params { display:none; }
+.params.active { display:block; }
+
+.param { margin-bottom:11px; }
+.param-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+.param-label { color:#888; font-size:0.75rem; }
+.param-val { color:#c8a06a; font-size:0.75rem; font-weight:600; min-width:40px; text-align:right; }
+input[type=range] { width:100%; accent-color:#c8a06a; cursor:pointer; }
+.param-hint { color:#484848; font-size:0.67rem; margin-top:3px; line-height:1.4; }
+select, input[type=number] { background:#1e1e1e; color:#bbb; border:1px solid #333; border-radius:4px; padding:4px 7px; font-size:0.78rem; width:100%; }
+select:focus, input[type=number]:focus { outline:none; border-color:#5a3a10; }
+.toggle-row { display:flex; gap:5px; margin-bottom:4px; }
+.toggle-btn { flex:1; background:#1e1e1e; color:#777; border:1px solid #2e2e2e; border-radius:4px; padding:5px; cursor:pointer; font-size:0.72rem; text-align:center; }
+.toggle-btn.active { background:#2d2010; color:#c8a06a; border-color:#5a3a10; }
+
+/* custom tab symmetry */
+.sym-row { display:flex; align-items:center; gap:8px; padding:6px 0 2px; border-top:1px solid #222; margin-top:4px; }
+.sym-row label { font-size:0.72rem; color:#666; flex:0 0 auto; }
+.sym-row input[type=range] { flex:1; }
+.sym-row span { font-size:0.72rem; color:#c8a06a; min-width:14px; text-align:right; }
+
+/* ── print tab ── */
+#print-body { flex:1; overflow-y:auto; padding:10px 12px; }
+.print-section { margin-bottom:14px; }
+.print-label { font-size:0.68rem; letter-spacing:0.08em; text-transform:uppercase; color:#555; margin-bottom:6px; }
+.print-input { background:#1e1e1e; color:#bbb; border:1px solid #333; border-radius:4px; padding:6px 8px; font-size:0.78rem; width:100%; margin-bottom:6px; }
+.print-input:focus { outline:none; border-color:#5a3a10; }
+.print-hint { font-size:0.67rem; color:#444; line-height:1.45; margin-top:3px; }
+#print-status { font-size:0.75rem; padding:6px 0; min-height:1.5em; }
+
+/* drop zone */
+.file-drop { border:1px dashed #2e2e2e; border-radius:5px; padding:12px; text-align:center; cursor:pointer; color:#555; font-size:0.75rem; transition:border-color .2s,color .2s; }
+.file-drop:hover, .file-drop.over { border-color:#c8a06a; color:#c8a06a; }
+.file-drop input { display:none; }
+
+/* ── actions (bottom of panel, always visible) ── */
+#panel-actions { padding:8px 10px; border-top:1px solid #252525; display:flex; flex-direction:column; gap:5px; }
+.action-btn { background:#2d2010; color:#c8a06a; border:1px solid #5a3a10; border-radius:5px; padding:7px; cursor:pointer; font-size:0.8rem; text-align:center; transition:background .15s; }
+.action-btn:hover { background:#3d2e18; }
+.action-btn:disabled { opacity:.3; cursor:default; }
+.action-btn.sec { background:#1e1e1e; color:#777; border-color:#2e2e2e; }
+.action-btn.sec:hover { background:#252525; color:#aaa; }
+.action-btn.sec:disabled { opacity:.3; }
+
+/* ── viewer (right) ── */
+#viewer { flex:1; display:flex; flex-direction:column; padding:10px; gap:7px; overflow:hidden; min-width:0; }
+#canvas-wrap { position:relative; flex:1; min-height:0; border-radius:6px; overflow:hidden; box-shadow:0 4px 32px #000c; align-self:center; width:100%; }
+#c-path, #c-ball { display:block; position:absolute; top:0; left:0; width:100%; height:100%; }
+#c-path { background:#2a1d0e; }
+#c-ball  { background:transparent; pointer-events:none; }
+#progress-wrap { width:100%; height:3px; background:#222; border-radius:2px; overflow:hidden; }
+#progress-bar { height:100%; background:#c8a06a; width:0%; }
+#table-settings { display:flex; flex-direction:column; gap:4px; font-size:0.72rem; color:#666; }
+#table-settings .row { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+#table-settings label { display:flex; align-items:center; gap:5px; }
+#table-settings input[type=number] { width:56px; padding:3px 6px; text-align:right; }
+#table-settings .sep { color:#3a3a3a; }
+#table-settings .hint { font-size:0.66rem; color:#555; line-height:1.35; }
+#controls { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.ctrl-btn { background:#1e1e1e; color:#bbb; border:1px solid #333; border-radius:4px; padding:4px 11px; cursor:pointer; font-size:0.78rem; }
+.ctrl-btn:hover { background:#252525; }
+.ctrl-btn:disabled { opacity:.3; cursor:default; }
+label.ctrl { font-size:0.72rem; color:#666; display:flex; align-items:center; gap:5px; }
+label.ctrl input[type=range] { width:75px; }
+#speed-readout { color:#c8a06a; font-size:0.7rem; min-width:70px; }
+#status { font-size:0.7rem; color:#555; min-height:1.1em; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LEFT PANEL ══════════════ -->
+<div id="panel">
+
+  <!-- tab bar -->
+  <div id="panel-tabs">
+    <button class="ptab active" data-tab="gallery">Gallery</button>
+    <button class="ptab" data-tab="custom">Custom</button>
+    <button class="ptab" data-tab="print">Print</button>
+  </div>
+
+  <!-- ── GALLERY TAB ── -->
+  <div class="tab-body active" id="tab-gallery">
+    <div id="gallery-scroll">
+      <!-- cards injected by JS -->
+    </div>
+    <div id="gallery-sym">
+      <div class="row">
+        <label>Rotational copies</label>
+        <input type="range" id="g-sym" min="1" max="8" value="1" step="1" oninput="document.getElementById('g-sym-v').textContent=this.value">
+        <span id="g-sym-v">1</span>
+      </div>
+      <div class="hint">Repeats the selected pattern N times evenly around the center, like a kaleidoscope. Updates the pattern above as you move it.</div>
+    </div>
+  </div>
+
+  <!-- ── CUSTOM TAB ── -->
+  <div class="tab-body" id="tab-custom">
+    <div id="type-grid">
+      <button class="type-btn active" data-type="rose">Petal Rose</button>
+      <button class="type-btn" data-type="maurer">Web Rose</button>
+      <button class="type-btn" data-type="spirograph">Spirograph</button>
+      <button class="type-btn" data-type="lissajous">Knot Curves</button>
+      <button class="type-btn" data-type="spiral">Spiral Fill</button>
+      <button class="type-btn" data-type="lsystem">Fractals</button>
+      <button class="type-btn" data-type="flowfield">Wind Swirls</button>
+      <button class="type-btn" data-type="butterfly">Butterfly</button>
+      <button class="type-btn" data-type="raster">Raster Fill</button>
+      <button class="type-btn" data-type="svg">From SVG</button>
+    </div>
+
+    <div id="params-area">
+
+      <!-- Petal Rose -->
+      <div class="params active" id="p-rose">
+        <div class="param">
+          <div class="param-row"><span class="param-label">Petals (N)</span><span class="param-val" id="r-n-v">5</span></div>
+          <input type="range" id="r-n" min="1" max="20" value="5" step="1" oninput="sv('r-n-v',this.value)">
+          <div class="param-hint">Odd → N petals &nbsp;·&nbsp; Even → 2N petals</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Fraction (D) — k = N/D</span><span class="param-val" id="r-d-v">1</span></div>
+          <input type="range" id="r-d" min="1" max="9" value="1" step="1" oninput="sv('r-d-v',this.value)">
+          <div class="param-hint">D=1 → simple petals &nbsp;·&nbsp; D=2,3 → intricate crossing curves</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="r-sc-v">0.90</span></div>
+          <input type="range" id="r-sc" min="0.2" max="1.0" value="0.9" step="0.05" oninput="sv('r-sc-v',ff(this.value))">
+        </div>
+        <div class="sym-row"><label>Rotational copies</label><input type="range" id="r-sym" min="1" max="8" value="1" step="1" oninput="document.getElementById('r-sym-v').textContent=this.value"><span id="r-sym-v">1</span></div>
+      </div>
+
+      <!-- Web Rose (Maurer) -->
+      <div class="params" id="p-maurer">
+        <div class="param">
+          <div class="param-row"><span class="param-label">Petal frequency (N)</span><span class="param-val" id="m-n-v">5</span></div>
+          <input type="range" id="m-n" min="2" max="12" value="5" step="1" oninput="sv('m-n-v',this.value)">
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Step angle (D°)</span><span class="param-val" id="m-d-v">97</span></div>
+          <input type="range" id="m-d" min="1" max="180" value="97" step="1" oninput="sv('m-d-v',this.value)">
+          <div class="param-hint">Try: N=5 D=97, N=6 D=71, N=4 D=77, N=7 D=19 — each is completely different</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="m-sc-v">0.90</span></div>
+          <input type="range" id="m-sc" min="0.2" max="1.0" value="0.9" step="0.05" oninput="sv('m-sc-v',ff(this.value))">
+        </div>
+        <div class="sym-row"><label>Rotational copies</label><input type="range" id="m-sym" min="1" max="8" value="1" step="1" oninput="document.getElementById('m-sym-v').textContent=this.value"><span id="m-sym-v">1</span></div>
+      </div>
+
+      <!-- Spirograph -->
+      <div class="params" id="p-spirograph">
+        <div class="param">
+          <div class="param-row"><span class="param-label">Mode</span></div>
+          <div class="toggle-row">
+            <button class="toggle-btn active" id="sp-hypo" onclick="setSpiroMode('hypo')">Classic (inner ring)</button>
+            <button class="toggle-btn" id="sp-epi" onclick="setSpiroMode('epi')">Flower (outer ring)</button>
+          </div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Outer circle R</span><span class="param-val" id="sp-R-v">5.0</span></div>
+          <input type="range" id="sp-R" min="1" max="20" value="5" step="0.5" oninput="sv('sp-R-v',ff(this.value))">
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Rolling circle r</span><span class="param-val" id="sp-r-v">3.0</span></div>
+          <input type="range" id="sp-r" min="0.5" max="15" value="3" step="0.5" oninput="sv('sp-r-v',ff(this.value))">
+          <div class="param-hint">R/r ratio controls the number of spokes</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Pen distance d</span><span class="param-val" id="sp-d-v">5.0</span></div>
+          <input type="range" id="sp-d" min="0" max="20" value="5" step="0.5" oninput="sv('sp-d-v',ff(this.value))">
+          <div class="param-hint">d=r → sharp star points &nbsp;·&nbsp; d&lt;r → rounded loops</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="sp-sc-v">0.90</span></div>
+          <input type="range" id="sp-sc" min="0.2" max="1.0" value="0.9" step="0.05" oninput="sv('sp-sc-v',ff(this.value))">
+        </div>
+        <div class="sym-row"><label>Rotational copies</label><input type="range" id="sp-sym" min="1" max="8" value="1" step="1" oninput="document.getElementById('sp-sym-v').textContent=this.value"><span id="sp-sym-v">1</span></div>
+      </div>
+
+      <!-- Knot Curves (Lissajous) -->
+      <div class="params" id="p-lissajous">
+        <div class="param">
+          <div class="param-row"><span class="param-label">Horizontal loops (A)</span><span class="param-val" id="l-a-v">3</span></div>
+          <input type="range" id="l-a" min="1" max="15" value="3" step="1" oninput="sv('l-a-v',this.value)">
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Vertical loops (B)</span><span class="param-val" id="l-b-v">2</span></div>
+          <input type="range" id="l-b" min="1" max="15" value="2" step="1" oninput="sv('l-b-v',this.value)">
+          <div class="param-hint">A:B ratio determines the knot shape. Try 3:2, 5:4, 7:6</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Phase shift</span><span class="param-val" id="l-d-v">0.50π</span></div>
+          <input type="range" id="l-d" min="0" max="2" value="0.5" step="0.05" oninput="sv('l-d-v',ff(this.value)+'π')">
+          <div class="param-hint">Changes whether curves cross or touch at the edges</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="l-sc-v">0.90</span></div>
+          <input type="range" id="l-sc" min="0.2" max="1.0" value="0.9" step="0.05" oninput="sv('l-sc-v',ff(this.value))">
+        </div>
+        <div class="sym-row"><label>Rotational copies</label><input type="range" id="l-sym" min="1" max="8" value="1" step="1" oninput="document.getElementById('l-sym-v').textContent=this.value"><span id="l-sym-v">1</span></div>
+      </div>
+
+      <!-- Spiral Fill -->
+      <div class="params" id="p-spiral">
+        <div class="param">
+          <div class="param-row"><span class="param-label">Number of turns</span><span class="param-val" id="si-t-v">40</span></div>
+          <input type="range" id="si-t" min="5" max="100" value="40" step="1" oninput="sv('si-t-v',this.value)">
+          <div class="param-hint">More turns = denser fill. 50+ looks like a vinyl record groove.</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Gap between rings</span><span class="param-val" id="si-g-v">0.025</span></div>
+          <input type="range" id="si-g" min="0.005" max="0.1" value="0.025" step="0.005" oninput="sv('si-g-v',fff(this.value))">
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="si-sc-v">0.90</span></div>
+          <input type="range" id="si-sc" min="0.2" max="1.0" value="0.9" step="0.05" oninput="sv('si-sc-v',ff(this.value))">
+        </div>
+      </div>
+
+      <!-- Fractals (L-System) -->
+      <div class="params" id="p-lsystem">
+        <div class="param">
+          <div class="param-row"><span class="param-label">Pattern type</span></div>
+          <select id="ls-p">
+            <option value="koch">❄️ Snowflake (Koch)</option>
+            <option value="sierpinski">△ Triangle (Sierpinski)</option>
+            <option value="plant">🌿 Fern (branching plant)</option>
+            <option value="dragon">🐉 Dragon Wing</option>
+            <option value="gosper">⬡ Gosper Island</option>
+            <option value="hilbert">⊞ Space Fill (Hilbert)</option>
+          </select>
+          <div class="param-hint" id="ls-hint" style="margin-top:5px"></div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Detail level</span><span class="param-val" id="ls-d-v">4</span></div>
+          <input type="range" id="ls-d" min="1" max="7" value="4" step="1" oninput="sv('ls-d-v',this.value)">
+          <div class="param-hint">Higher = more detail but takes longer. Stay ≤5 for speed.</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="ls-sc-v">0.90</span></div>
+          <input type="range" id="ls-sc" min="0.2" max="1.0" value="0.9" step="0.05" oninput="sv('ls-sc-v',ff(this.value))">
+        </div>
+        <div class="sym-row"><label>Rotational copies</label><input type="range" id="ls-sym" min="1" max="8" value="1" step="1" oninput="document.getElementById('ls-sym-v').textContent=this.value"><span id="ls-sym-v">1</span></div>
+      </div>
+
+      <!-- Wind Swirls (Flow Field) -->
+      <div class="params" id="p-flowfield">
+        <div class="param">
+          <div class="param-row"><span class="param-label">Seed (each number = new pattern)</span></div>
+          <input type="number" id="ff-seed" min="0" max="99999" value="42">
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Number of streamlines</span><span class="param-val" id="ff-p-v">200</span></div>
+          <input type="range" id="ff-p" min="20" max="500" value="200" step="10" oninput="sv('ff-p-v',this.value)">
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Length of each streamline</span><span class="param-val" id="ff-s-v">300</span></div>
+          <input type="range" id="ff-s" min="50" max="1000" value="300" step="10" oninput="sv('ff-s-v',this.value)">
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Noise scale</span><span class="param-val" id="ff-ns-v">2.0</span></div>
+          <input type="range" id="ff-ns" min="0.5" max="5" value="2" step="0.1" oninput="sv('ff-ns-v',ff(this.value))">
+          <div class="param-hint">Low → long sweeping curves &nbsp;·&nbsp; High → tight swirls</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Turbulence</span><span class="param-val" id="ff-str-v">2.0</span></div>
+          <input type="range" id="ff-str" min="0.5" max="5" value="2" step="0.1" oninput="sv('ff-str-v',ff(this.value))">
+          <div class="param-hint">How sharply the wind bends the paths</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="ff-sc-v">0.90</span></div>
+          <input type="range" id="ff-sc" min="0.2" max="1.0" value="0.9" step="0.05" oninput="sv('ff-sc-v',ff(this.value))">
+        </div>
+      </div>
+
+      <!-- Butterfly -->
+      <div class="params" id="p-butterfly">
+        <div class="param-hint" style="color:#666;font-size:0.78rem;line-height:1.5;padding-bottom:8px">
+          The butterfly curve (r = e<sup>sin θ</sup> − 2cos 4θ − sin⁵(θ/12)) traces a pair of organic wings with four looping arms.  No parameters — each run is the same beautiful shape.
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Size</span><span class="param-val" id="bt-sc-v">0.88</span></div>
+          <input type="range" id="bt-sc" min="0.3" max="1.0" value="0.88" step="0.05" oninput="sv('bt-sc-v',ff(this.value))">
+        </div>
+        <div class="sym-row"><label>Rotational copies</label><input type="range" id="bt-sym" min="1" max="8" value="1" step="1" oninput="document.getElementById('bt-sym-v').textContent=this.value"><span id="bt-sym-v">1</span></div>
+      </div>
+
+      <!-- Raster Fill -->
+      <div class="params" id="p-raster">
+        <div class="param-hint" style="color:#666;font-size:0.78rem;line-height:1.5;padding-bottom:8px">
+          Back-and-forth horizontal lines covering the full table — the most reliable eraser.
+          Leaves the sand in a clean, uniform raked finish.
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Number of rows</span><span class="param-val" id="ra-rows-v">80</span></div>
+          <input type="range" id="ra-rows" min="20" max="240" value="80" step="4" oninput="sv('ra-rows-v',this.value)">
+          <div class="param-hint">40 = fast coarse pass &nbsp;·&nbsp; 120 = thorough &nbsp;·&nbsp; 200 = very fine</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Border margin</span><span class="param-val" id="ra-margin-v">0.01</span></div>
+          <input type="range" id="ra-margin" min="0" max="0.08" value="0.01" step="0.005" oninput="sv('ra-margin-v',fff(this.value))">
+        </div>
+      </div>
+
+      <!-- From SVG -->
+      <div class="params" id="p-svg">
+        <div class="param">
+          <div class="param-label" style="margin-bottom:6px">SVG outline file</div>
+          <div class="file-drop" id="svg-drop">Click or drop an SVG here<input type="file" id="svg-file" accept=".svg"></div>
+          <div id="svg-fname" style="color:#555;font-size:0.68rem;margin-top:3px"></div>
+          <div class="param-hint" style="margin-top:4px">Single-stroke silhouettes work best. Search "animal silhouette svg" on thenounproject.com.</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Curve smoothness</span><span class="param-val" id="sv-spu-v">0.5</span></div>
+          <input type="range" id="sv-spu" min="0.1" max="5" value="0.5" step="0.1" oninput="sv('sv-spu-v',ff(this.value))">
+          <div class="param-hint">Increase for SVGs with very small or tight curves</div>
+        </div>
+        <div class="param">
+          <div class="param-row"><span class="param-label">Border margin</span><span class="param-val" id="sv-m-v">0.05</span></div>
+          <input type="range" id="sv-m" min="0" max="0.2" value="0.05" step="0.01" oninput="sv('sv-m-v',ff(this.value))">
+        </div>
+      </div>
+
+    </div><!-- /params-area -->
+
+    <!-- custom symmetry shown inline per-panel, actions below -->
+  </div><!-- /tab-custom -->
+
+  <!-- ── PRINT TAB ── -->
+  <div class="tab-body" id="tab-print">
+    <div id="print-body">
+
+      <!-- Connection form — hidden once connected -->
+      <div id="conn-form" class="print-section">
+        <div class="print-label">OctoPrint server</div>
+        <input class="print-input" type="text" id="op-url" placeholder="http://octopi.local">
+        <input class="print-input" type="password" id="op-key" placeholder="API key (Settings → API)">
+        <div style="display:flex;gap:6px;margin-top:4px;align-items:center">
+          <button id="btn-connect" style="background:#2d2010;color:#c8a06a;border:1px solid #5a3a10;border-radius:4px;padding:5px 10px;cursor:pointer;font-size:0.75rem;white-space:nowrap">Connect</button>
+          <span id="conn-badge" style="font-size:0.72rem;color:#555"></span>
+        </div>
+      </div>
+
+      <!-- Connected summary — shown instead of form once connected -->
+      <div id="conn-summary" style="display:none;padding:8px 0 6px;border-bottom:1px solid #1e1e1e;margin-bottom:6px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span id="conn-summary-text" style="font-size:0.75rem;color:#4a8"></span>
+          <button id="btn-disconnect" style="background:none;border:none;color:#555;font-size:0.68rem;cursor:pointer;text-decoration:underline">Disconnect</button>
+        </div>
+      </div>
+
+      <!-- Live status — shown once connected -->
+      <div id="octo-live" style="display:none">
+
+        <!-- State + temps -->
+        <div class="print-section" style="padding-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span id="octo-state" style="font-size:0.9rem;font-weight:600;color:#ccc">—</span>
+            <span id="octo-temps" style="font-size:0.67rem;color:#555"></span>
+          </div>
+          <div id="octo-file" style="font-size:0.68rem;color:#555;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <!-- Shown when OctoPrint itself is reachable but has no active
+               serial link to the board (common right after an OctoPrint
+               restart, since it doesn't always auto-reconnect). -->
+          <div id="octo-serial-offline" style="display:none;margin-top:8px">
+            <button id="btn-connect-serial" class="ctrl-btn" style="width:100%;background:#3d2010;color:#e08a30;border-color:#7a4a10">⚡ Connect to printer</button>
+          </div>
+          <!-- Job progress bar -->
+          <div id="octo-prog-wrap" style="display:none;margin-top:6px">
+            <div style="height:3px;background:#222;border-radius:2px;overflow:hidden">
+              <div id="octo-prog-bar" style="height:100%;background:#c8a06a;width:0%;transition:width .5s"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:0.67rem;color:#444">
+              <span id="octo-prog-pct"></span><span id="octo-time-left"></span>
+            </div>
+          </div>
+          <!-- Manual GRBL terminal — send any raw command directly -->
+          <div style="display:flex;gap:6px;margin-top:10px">
+            <input type="text" id="grbl-cmd-input" placeholder="GRBL command, e.g. $H" class="print-input" style="margin-bottom:0;flex:1">
+            <button id="btn-grbl-send" class="ctrl-btn">Send</button>
+          </div>
+        </div>
+
+        <!-- Mini drawing canvas (only shown when G-code was sent from this session) -->
+        <div id="octo-preview-wrap" style="display:none;padding:0 10px 8px">
+          <span style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:#444">Currently drawing</span>
+          <canvas id="mini-canvas" style="width:100%;display:block;margin-top:4px;background:#2a1d0e;border-radius:4px;border:1px solid #2a2a2a"></canvas>
+        </div>
+
+        <!-- Queue -->
+        <div class="print-section" style="border-top:1px solid #1e1e1e">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span style="font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:#444">Queue (<span id="queue-count">0</span>)</span>
+            <button id="btn-clear-queue" style="background:none;border:none;color:#444;font-size:0.68rem;cursor:pointer">Clear all</button>
+          </div>
+          <div id="queue-list" style="max-height:110px;overflow-y:auto"></div>
+        </div>
+
+      </div>
+
+      <!-- Activity log -->
+      <div id="print-log" style="flex:1;padding:6px 10px;overflow-y:auto;max-height:260px"></div>
+
+      <!-- Load gcode file -->
+      <div style="padding:8px 10px;border-top:1px solid #1e1e1e">
+        <div class="print-label" style="margin-bottom:5px">Load .gcode file</div>
+        <div class="file-drop" id="gcode-drop">Drop .gcode here or click<input type="file" id="gcode-file" accept=".gcode"></div>
+      </div>
+
+    </div>
+  </div><!-- /tab-print -->
+
+  <!-- always-visible action buttons -->
+  <div id="panel-actions">
+    <button class="action-btn" id="btn-generate" style="display:none">⚡ Generate &amp; Preview</button>
+  </div>
+
+</div><!-- /panel -->
+
+<!-- ══════════════ RIGHT VIEWER ══════════════ -->
+<div id="viewer">
+  <div id="table-settings">
+    <div class="row">
+      <label>Table size<input type="number" id="tbl-w" value="515" min="50" max="2000" step="1"><span class="sep">×</span><input type="number" id="tbl-h" value="320" min="50" max="2000" step="1">mm</label>
+      <label>Groove width<input type="number" id="tbl-groove" value="1" min="0.5" max="100" step="0.5">mm</label>
+      <label>Corner rounding<input type="number" id="tbl-corner" value="0" min="0" max="100" step="0.5">mm</label>
+    </div>
+    <div class="hint">Groove width is what the ball actually leaves in the sand. Corner rounding simulates the ball's momentum lagging behind sharp turns — it only affects this preview, not the G-code you send. Both are easiest to set by comparing against a real print; start corner rounding at 0.</div>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="c-path"></canvas>
+    <canvas id="c-ball"></canvas>
+  </div>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <div id="controls">
+    <button class="ctrl-btn" id="btn-play" disabled>▶ Play</button>
+    <button class="ctrl-btn" id="btn-pause" disabled>⏸ Pause</button>
+    <button class="ctrl-btn" id="btn-reset" disabled>↺ Reset</button>
+    <label class="ctrl">Speed<input type="range" id="speed" min="1" max="100" value="50"><span id="speed-readout"></span></label>
+    <label class="ctrl">Trail<input type="range" id="trail" min="0" max="30" value="0"></label>
+    <label class="ctrl"><input type="checkbox" id="show-ball" checked> Ball</label>
+    <span style="flex:1"></span>
+    <button class="ctrl-btn" id="btn-download" disabled>↓ Download</button>
+    <button class="ctrl-btn" id="btn-send" disabled style="background:#2d2010;color:#c8a06a;border-color:#5a3a10">▶ Print</button>
+  </div>
+  <div id="status">Pick a preset from the Gallery, or go to Custom to adjust parameters.</div>
+</div>
+
+<script type="module">
+import init, {
+  gen_rose, gen_lissajous, gen_spirograph, gen_spiral,
+  gen_lsystem, gen_flowfield, gen_from_svg,
+  gen_maurer_rose, gen_butterfly, gen_raster, gen_logarithmic, set_table_size
+} from './pkg/sandscript.js';
+
+// ═══════════════ TABLE / CANVAS ═══════════════
+const TABLE = { xMin:5, xMax:520, yMin:5, yMax:325, w:515, h:320, cx:262.5, cy:165 };
+const pathCanvas = document.getElementById('c-path');
+const ballCanvas = document.getElementById('c-ball');
+const ctx  = pathCanvas.getContext('2d');
+const bctx = ballCanvas.getContext('2d');
+
+function t2c(x,y){
+  const W=pathCanvas.width, H=pathCanvas.height;
+  const M=Math.round(Math.min(W,H)*0.025);
+  return [M+(x-TABLE.xMin)/TABLE.w*(W-2*M), M+(TABLE.yMax-y)/TABLE.h*(H-2*M)];
+}
+
+// mm → canvas pixels, using the same scale t2c uses (px/mm is equal on both
+// axes since the canvas aspect ratio is kept matched to the table's).
+function mmToPx(mm){
+  const W=pathCanvas.width, M=Math.round(Math.min(W,pathCanvas.height)*0.025);
+  return mm*(W-2*M)/TABLE.w;
+}
+function grooveWidthMM(){ return parseFloat(document.getElementById('tbl-groove').value)||1; }
+function grooveStrokePx(){ return Math.max(1, mmToPx(grooveWidthMM())); }
+
+function resizeCanvas(){
+  const wrap=document.getElementById('canvas-wrap');
+  const cw=wrap.clientWidth, ch=wrap.clientHeight;
+  let w=cw, h=cw*TABLE.h/TABLE.w;
+  if(h>ch){h=ch;w=h*TABLE.w/TABLE.h;}
+  pathCanvas.width=ballCanvas.width=Math.round(w);
+  pathCanvas.height=ballCanvas.height=Math.round(h);
+  wrap.style.height=pathCanvas.height+'px';
+  clearCanvas();
+  if(pts.length>0) redrawPreservingProgress();
+}
+window.addEventListener('resize',resizeCanvas);
+
+// ═══════════════ STATE ═══════════════
+let pts=[], renderPts=[], idx=0, running=false, accumulated=0, animId=null, lastTime=0;
+let currentGcode='', currentName='', spiroMode='hypo';
+let wasmReady=false;
+
+
+// ═══════════════ PRESETS ═══════════════
+// Each preset calls one of the WASM functions with specific parameters.
+// 'sym' = default rotational copies for the gallery.
+const PRESETS = [
+  // ANIMALS (pre-made G-code files, not algorithmically generated)
+  { cat:'🐾 Animals', name:'Mastan',  desc:'Labrador retriever',  type:'file', file:'animals/mastan.gcode', sym:1 },
+  { cat:'🐾 Animals', name:'Turtle',  desc:'Turtle',              type:'file', file:'animals/turtle.gcode', sym:1 },
+
+  // ERASERS
+  { cat:'🧹 Erasers', name:'Rake',       desc:'60 rows — fast, clean finish',    type:'raster', rows:60,  margin:0.01 },
+  { cat:'🧹 Erasers', name:'Fine Rake',  desc:'120 rows — thorough coverage',    type:'raster', rows:120, margin:0.01 },
+  { cat:'🧹 Erasers', name:'Deep Clean', desc:'200 rows — very dense pass',      type:'raster', rows:200, margin:0.005 },
+  { cat:'🧹 Erasers', name:'Zen Spiral', desc:'Tight spiral — wipes center out', type:'spiral', turns:90, gap:0.012, scale:0.98, sym:1 },
+  { cat:'🧹 Erasers', name:'Grid Fill',  desc:'Hilbert curve — systematic grid', type:'lsystem', preset:'hilbert', depth:6, scale:0.97, sym:1 },
+
+  // ORGANIC
+  { cat:'🦋 Organic', name:'Butterfly',       desc:'4-lobed organic wing curve',  type:'butterfly', scale:0.88, sym:1 },
+  { cat:'🦋 Organic', name:'Fern',            desc:'Branching fractal fern',      type:'lsystem', preset:'plant', depth:5, scale:0.85, sym:1 },
+
+  // FILL & FLOW
+  { cat:'🌊 Fill & Flow', name:'Galaxy',      desc:'3-armed spiral, like a galaxy',type:'logspiral', b:0.3, turns:2.0, scale:0.9, sym:3 },
+  { cat:'🌊 Fill & Flow', name:'Ocean Breeze',desc:'Gentle flowing curves',       type:'flowfield', seed:1,   particles:200, steps:500, ns:0.8,  str:1.5, scale:0.9, sym:1 },
+  { cat:'🌊 Fill & Flow', name:'Storm',       desc:'Turbulent swirling vortices', type:'flowfield', seed:7,   particles:300, steps:200, ns:3.0,  str:3.0, scale:0.9, sym:1 },
+  { cat:'🌊 Fill & Flow', name:'Gosper Island',desc:'Hexagonal space-fill curve', type:'lsystem', preset:'gosper', depth:4, scale:0.9, sym:1 },
+
+  // FLOWERS (petal rose)
+  { cat:'🌸 Flowers', name:'Daisy',         desc:'5 smooth petals',           type:'rose',       n:5,  d:1,  scale:0.9, sym:1 },
+  { cat:'🌸 Flowers', name:'Chrysanthemum', desc:'8 rounded petals',           type:'rose',       n:4,  d:1,  scale:0.9, sym:1 },
+  { cat:'🌸 Flowers', name:'Wild Rose',     desc:'7 petals with inner ring',   type:'rose',       n:7,  d:2,  scale:0.9, sym:1 },
+  { cat:'🌸 Flowers', name:'Garden Web',    desc:'Complex 22-petal bloom',     type:'rose',       n:11, d:4,  scale:0.9, sym:1 },
+
+  // SPIROGRAPH
+  { cat:'🌀 Spirograph', name:'Classic Star',  desc:'5-pointed spirograph star',  type:'spirograph', R:5, r:3, d:5, epi:false, scale:0.9, sym:1 },
+  { cat:'🌀 Spirograph', name:'Snowdrop',      desc:'Delicate 7-spoke pattern',   type:'spirograph', R:7, r:2, d:5, epi:false, scale:0.9, sym:1 },
+  { cat:'🌀 Spirograph', name:'Clover',        desc:'3-leaf clover shape',        type:'spirograph', R:3, r:1, d:1, epi:true,  scale:0.9, sym:1 },
+  { cat:'🌀 Spirograph', name:'Peach Blossom', desc:'5-petal flower (epitrochoid)',type:'spirograph', R:5, r:1, d:2, epi:true,  scale:0.9, sym:1 },
+
+  // GEOMETRIC / FRACTALS
+  { cat:'❄️ Geometric', name:'Snowflake',      desc:'Koch fractal snowflake',      type:'lsystem', preset:'koch',      depth:4, scale:0.9, sym:1 },
+  { cat:'❄️ Geometric', name:'Triangle',       desc:'Sierpinski triangle',         type:'lsystem', preset:'sierpinski',depth:6, scale:0.9, sym:1 },
+  { cat:'❄️ Geometric', name:'Dragon Wing',    desc:'Folded-paper fractal',        type:'lsystem', preset:'dragon',    depth:12,scale:0.9, sym:1 },
+
+  // KNOT CURVES (Lissajous)
+  { cat:'🔗 Knot Curves', name:'Celtic Knot',  desc:'Classic 3:2 woven figure',   type:'lissajous', a:3, b:2, delta:0.5,  scale:0.9, sym:1 },
+  { cat:'🔗 Knot Curves', name:'Figure-8',     desc:'Sideways infinity loop',      type:'lissajous', a:1, b:2, delta:0.5,  scale:0.9, sym:1 },
+  { cat:'🔗 Knot Curves', name:'Star Weave',   desc:'Dense 7:6 woven star',       type:'lissajous', a:7, b:6, delta:0.3,  scale:0.9, sym:1 },
+];
+
+// ═══════════════ GALLERY RENDERING ═══════════════
+function buildGallery(){
+  const scroll=document.getElementById('gallery-scroll');
+  scroll.innerHTML='';
+  const cats=[...new Set(PRESETS.map(p=>p.cat))];
+  cats.forEach(cat=>{
+    const label=document.createElement('div');
+    label.className='gallery-cat'; label.textContent=cat; scroll.appendChild(label);
+    const grid=document.createElement('div');
+    grid.className='gallery-grid'; scroll.appendChild(grid);
+    PRESETS.filter(p=>p.cat===cat).forEach(preset=>{
+      const card=document.createElement('button');
+      card.className='preset-card'; card.dataset.name=preset.name;
+      card.innerHTML=`<div class="pc-name">${preset.name}</div><div class="pc-desc">${preset.desc}</div>`;
+      card.addEventListener('click',()=>activatePreset(preset,card));
+      grid.appendChild(card);
+    });
+  });
+}
+
+let activeGalleryPreset=null, activeSource=null; // activeSource: 'gallery' | 'custom' | 'dropped'
+
+async function activatePreset(preset,card){
+  document.querySelectorAll('.preset-card').forEach(c=>c.classList.remove('active'));
+  card.classList.add('active');
+  activeGalleryPreset=preset;
+  activeSource='gallery';
+  const symInput=document.getElementById('g-sym');
+  symInput.value=preset.sym||1;
+  document.getElementById('g-sym-v').textContent=symInput.value;
+  await regenerateGalleryPreset();
+}
+
+async function regenerateGalleryPreset(){
+  if(!activeGalleryPreset) return;
+  const sym=parseInt(document.getElementById('g-sym').value);
+  setStatus('Generating…','#888');
+  try {
+    const gcode=await buildGcodeFromPreset(activeGalleryPreset,sym);
+    loadGcodeString(gcode,activeGalleryPreset.name+'.gcode');
+  } catch(e){ setStatus('Error: '+e,'#c00'); }
+}
+
+document.getElementById('g-sym').addEventListener('change',regenerateGalleryPreset);
+
+const presetFileCache={};
+async function loadPresetFile(path){
+  if(presetFileCache[path]) return presetFileCache[path];
+  const r=await fetch(path);
+  if(!r.ok) throw new Error(`Couldn't load ${path} (HTTP ${r.status})`);
+  const text=await r.text();
+  presetFileCache[path]=text;
+  return text;
+}
+
+async function buildGcodeFromPreset(p,sym){
+  let gcode;
+  switch(p.type){
+    case 'rose':       gcode=await gen_rose(p.n,p.d,p.scale); break;
+    case 'maurer':     gcode=await gen_maurer_rose(p.n,p.d,p.scale); break;
+    case 'spirograph': gcode=await gen_spirograph(p.R,p.r,p.d,p.epi,p.scale); break;
+    case 'lissajous':  gcode=await gen_lissajous(p.a,p.b,p.delta,p.scale); break;
+    case 'spiral':     gcode=await gen_spiral(p.turns,p.gap,p.scale); break;
+    case 'lsystem':    gcode=await gen_lsystem(p.preset,p.depth,p.scale); break;
+    case 'logspiral':  gcode=await gen_logarithmic(p.b,p.turns,p.scale); break;
+    case 'flowfield':  gcode=await gen_flowfield(p.seed,p.particles,p.steps,p.ns,p.str,p.scale); break;
+    case 'butterfly':  gcode=await gen_butterfly(p.scale); break;
+    case 'raster':     gcode=await gen_raster(p.rows, p.margin); break;
+    case 'file': {
+      const raw=await loadPresetFile(p.file);
+      gcode=ptsToGcode(fitPointsToTable(parseGcode(raw),0.03),p.name);
+      break;
+    }
+    default: throw new Error('unknown type: '+p.type);
+  }
+  const effective_sym = sym > 1 ? sym : (p.sym||1);
+  return effective_sym>1 ? applySymmetryToGcode(gcode,effective_sym) : gcode;
+}
+
+// ═══════════════ ROTATIONAL SYMMETRY ═══════════════
+function applySymmetryToGcode(gcode, n){
+  const raw=parseGcode(gcode);
+  if(!raw.length) return gcode;
+  const pts2=raw.map(p=>({x:p.x-TABLE.cx, y:p.y-TABLE.cy}));
+  const maxR=Math.max(...pts2.map(p=>Math.sqrt(p.x*p.x+p.y*p.y)));
+  // Ensure pattern fits within the table's inscribed circle (each copy keeps the same radius)
+  const halfSafe=Math.min(TABLE.w,TABLE.h)/2*0.92;
+  const scl=maxR>halfSafe ? halfSafe/maxR : 1.0;
+
+  const result=[];
+  for(let k=0;k<n;k++){
+    const a=k*2*Math.PI/n, ca=Math.cos(a), sa=Math.sin(a);
+    for(const p of pts2){
+      const rx=p.x*scl, ry=p.y*scl;
+      result.push({x:TABLE.cx+rx*ca-ry*sa, y:TABLE.cy+rx*sa+ry*ca});
+    }
+  }
+  return ptsToGcode(result,'sym_pattern');
+}
+
+function ptsToGcode(pts,name='pattern'){
+  const hdr=`;\n; File name: '${name}'\n; File type: gcode\n;\n; BEGIN PRE\nG1F2000\n; END PRE\n`;
+  return hdr+'\n'+pts.map(p=>`G1 X${p.x.toFixed(3)} Y${p.y.toFixed(3)}`).join('\n');
+}
+
+// Rescales a fixed point cloud (loaded from a static .gcode file, not
+// generated fresh) to fit the current table size, preserving aspect ratio.
+function fitPointsToTable(rawPts,marginFrac=0.03){
+  if(!rawPts.length) return [];
+  let minx=Infinity,maxx=-Infinity,miny=Infinity,maxy=-Infinity;
+  for(const p of rawPts){
+    if(p.x<minx)minx=p.x; if(p.x>maxx)maxx=p.x;
+    if(p.y<miny)miny=p.y; if(p.y>maxy)maxy=p.y;
+  }
+  const srcW=Math.max(maxx-minx,1e-9), srcH=Math.max(maxy-miny,1e-9);
+  const availW=TABLE.w*(1-marginFrac*2), availH=TABLE.h*(1-marginFrac*2);
+  const scale=Math.min(availW/srcW,availH/srcH);
+  const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
+  return rawPts.map(p=>({x:TABLE.cx+(p.x-cx)*scale, y:TABLE.cy+(p.y-cy)*scale}));
+}
+
+// ═══════════════ PRINT LEAD-IN (route the approach along the table edge) ═══
+// GRBL always moves in a straight line from wherever the ball currently is to
+// the first coordinate of a new job. Left alone, that draws an arbitrary chord
+// straight across whatever's already on the table. Since our own last-sent
+// pattern is the only thing that tells us where the ball actually ended up,
+// we track its final point and route the next job's approach via the nearest
+// table edge and around the perimeter, so the only unavoidable "cut across"
+// segment is the short hop from that last point out to the edge.
+function nearestBoundaryPoint(p){
+  const dLeft=p.x-TABLE.xMin, dRight=TABLE.xMax-p.x, dBottom=p.y-TABLE.yMin, dTop=TABLE.yMax-p.y;
+  const m=Math.min(dLeft,dRight,dBottom,dTop);
+  if(m===dLeft) return {x:TABLE.xMin,y:p.y};
+  if(m===dRight) return {x:TABLE.xMax,y:p.y};
+  if(m===dBottom) return {x:p.x,y:TABLE.yMin};
+  return {x:p.x,y:TABLE.yMax};
+}
+
+// Parametrize the rectangle's perimeter as a single looped distance,
+// clockwise starting at the bottom-left corner along the bottom edge.
+function perimeterParam(p){
+  const {xMin,xMax,yMin,yMax}=TABLE, w=xMax-xMin, h=yMax-yMin, eps=1e-6;
+  if(Math.abs(p.y-yMin)<eps) return p.x-xMin;
+  if(Math.abs(p.x-xMax)<eps) return w+(p.y-yMin);
+  if(Math.abs(p.y-yMax)<eps) return w+h+(xMax-p.x);
+  return w+h+w+(yMax-p.y);
+}
+function pointAtPerimeterParam(t){
+  const {xMin,xMax,yMin,yMax}=TABLE, w=xMax-xMin, h=yMax-yMin, peri=2*(w+h);
+  t=((t%peri)+peri)%peri;
+  if(t<=w) return {x:xMin+t,y:yMin};
+  t-=w; if(t<=h) return {x:xMax,y:yMin+t};
+  t-=h; if(t<=w) return {x:xMax-t,y:yMax};
+  t-=w; return {x:xMin,y:yMax-t};
+}
+
+// Walk the shorter way around the perimeter from `from` to `to`, including
+// any corners crossed along the way so the path stays exactly on the edge.
+function tracePerimeter(from,to){
+  const {xMin,xMax,yMin,yMax}=TABLE, w=xMax-xMin, h=yMax-yMin, peri=2*(w+h);
+  const corners=[0,w,w+h,w+h+w];
+  const t0=perimeterParam(from);
+  let d=perimeterParam(to)-t0;
+  while(d>peri/2) d-=peri;
+  while(d<-peri/2) d+=peri;
+  const t1=t0+d;
+  // Unwrap each corner to the copy nearest t0 in the direction of travel,
+  // keep only those strictly between t0 and t1, then sort by traversal
+  // order — the direction of the raw `corners` list doesn't matter here.
+  const crossed=[];
+  for(const c of corners){
+    let cc=c;
+    if(d>=0){ while(cc<=t0) cc+=peri; if(cc<t1) crossed.push(cc); }
+    else    { while(cc>=t0) cc-=peri; if(cc>t1) crossed.push(cc); }
+  }
+  crossed.sort((a,b)=> d>=0 ? a-b : b-a);
+  const pts=crossed.map(pointAtPerimeterParam);
+  pts.push(pointAtPerimeterParam(t1));
+  return pts;
+}
+
+let lastPrintEndPoint=null;
+try{ lastPrintEndPoint=JSON.parse(localStorage.getItem('op-last-end')||'null'); }catch(e){}
+
+function withBoundaryLeadIn(gcode,name){
+  const patternPts=parseGcode(gcode);
+  if(!patternPts.length) return gcode;
+  let allPts=patternPts;
+  if(lastPrintEndPoint){
+    const entry=nearestBoundaryPoint(lastPrintEndPoint);
+    const exit=nearestBoundaryPoint(patternPts[0]);
+    allPts=[entry,...tracePerimeter(entry,exit),...patternPts];
+    // Adjacent boundary/corner points can coincide (e.g. entry and exit
+    // land on the same edge point) — drop the resulting no-op duplicates.
+    allPts=allPts.filter((p,i)=>i===0||Math.hypot(p.x-allPts[i-1].x,p.y-allPts[i-1].y)>1e-6);
+  }
+  lastPrintEndPoint=patternPts[patternPts.length-1];
+  localStorage.setItem('op-last-end',JSON.stringify(lastPrintEndPoint));
+  return ptsToGcode(allPts,name.replace(/\.gcode$/i,''));
+}
+
+// ═══════════════ CUSTOM TAB GENERATION ═══════════════
+async function generateCustomAndLoad(){
+  if(!wasmReady){setStatus('WASM loading…','#888');return;}
+  const btn=document.getElementById('btn-generate');
+  btn.textContent='Generating…'; btn.disabled=true;
+  try {
+    const {gcode,name}=await buildGcodeFromCustom();
+    activeSource='custom';
+    loadGcodeString(gcode,name);
+  } catch(e){ setStatus('Error: '+e,'#c00'); }
+  finally { btn.textContent='⚡ Generate & Preview'; btn.disabled=false; }
+}
+document.getElementById('btn-generate').addEventListener('click',generateCustomAndLoad);
+
+async function buildGcodeFromCustom(){
+  const type=currentType;
+  const gv=id=>parseFloat(document.getElementById(id).value);
+  const iv=id=>parseInt(document.getElementById(id).value);
+  const sym=id=>parseInt(document.getElementById(id).value)||1;
+  let gcode, name=type;
+
+  switch(type){
+    case 'rose':
+      gcode=await gen_rose(iv('r-n'),iv('r-d'),gv('r-sc'));
+      gcode=applyIfSym(gcode,sym('r-sym')); name='rose'; break;
+    case 'maurer':
+      gcode=await gen_maurer_rose(iv('m-n'),iv('m-d'),gv('m-sc'));
+      gcode=applyIfSym(gcode,sym('m-sym')); name='maurer_rose'; break;
+    case 'spirograph':
+      gcode=await gen_spirograph(gv('sp-R'),gv('sp-r'),gv('sp-d'),spiroMode==='epi',gv('sp-sc'));
+      gcode=applyIfSym(gcode,sym('sp-sym')); name='spirograph'; break;
+    case 'lissajous':
+      gcode=await gen_lissajous(iv('l-a'),iv('l-b'),gv('l-d'),gv('l-sc'));
+      gcode=applyIfSym(gcode,sym('l-sym')); name='lissajous'; break;
+    case 'spiral':
+      gcode=await gen_spiral(gv('si-t'),gv('si-g'),gv('si-sc')); name='spiral'; break;
+    case 'lsystem':
+      gcode=await gen_lsystem(document.getElementById('ls-p').value,iv('ls-d'),gv('ls-sc'));
+      gcode=applyIfSym(gcode,sym('ls-sym')); name='lsystem'; break;
+    case 'flowfield':
+      gcode=await gen_flowfield(iv('ff-seed')||0,iv('ff-p'),iv('ff-s'),gv('ff-ns'),gv('ff-str'),gv('ff-sc'));
+      name='flowfield'; break;
+    case 'butterfly':
+      gcode=await gen_butterfly(gv('bt-sc'));
+      gcode=applyIfSym(gcode,sym('bt-sym')); name='butterfly'; break;
+    case 'raster':
+      gcode=await gen_raster(iv('ra-rows'),gv('ra-margin')); name='raster'; break;
+    case 'svg':{
+      const f=document.getElementById('svg-file').files[0];
+      if(!f) throw new Error('No SVG file selected — click the SVG panel to pick one');
+      const txt=await f.text();
+      gcode=await gen_from_svg(txt,gv('sv-spu'),gv('sv-m')); name='from_svg'; break;
+    }
+    default: throw new Error('Unknown type: '+type);
+  }
+  return {gcode,name:name+'.gcode'};
+}
+
+function applyIfSym(gcode,n){ return n>1 ? applySymmetryToGcode(gcode,n) : gcode; }
+
+// ═══════════════ TABLE / BALL SETTINGS ═══════════════
+['tbl-w','tbl-h','tbl-groove','tbl-corner'].forEach(id=>{
+  const saved=localStorage.getItem(id);
+  if(saved) document.getElementById(id).value=saved;
+});
+
+function cornerRoundingMM(){ return Math.max(0,parseFloat(document.getElementById('tbl-corner').value)||0); }
+
+// Geometric corner fillet: at each vertex where the path actually turns
+// sharply, insert a real circular arc of the requested radius, tangent to
+// both edges — the same construction CNC/vector tools use for "corner
+// radius." Vertices where the path is already close to straight (below
+// CORNER_ANGLE_DEG deflection) are left untouched, so — unlike a blur — this
+// never distorts already-smooth curves, and the mm value is literal: asking
+// for a 5mm radius gives (edge lengths permitting) an exact 5mm arc.
+const CORNER_ANGLE_DEG=8;
+
+function sampleArc(O,R,aStart,aEnd,steps){
+  let d=aEnd-aStart;
+  while(d>Math.PI) d-=2*Math.PI;
+  while(d<-Math.PI) d+=2*Math.PI;
+  const out=[];
+  for(let k=1;k<steps;k++){
+    const a=aStart+d*k/steps;
+    out.push({x:O.x+R*Math.cos(a),y:O.y+R*Math.sin(a)});
+  }
+  return out;
+}
+
+function filletCorners(rawPts,radiusMM){
+  const n=rawPts.length;
+  if(n<3||radiusMM<=0) return rawPts;
+  const thresh=CORNER_ANGLE_DEG*Math.PI/180;
+  const out=[rawPts[0]];
+  for(let i=1;i<n-1;i++){
+    const A=rawPts[i-1],B=rawPts[i],C=rawPts[i+1];
+    const v1x=B.x-A.x,v1y=B.y-A.y,len1=Math.hypot(v1x,v1y);
+    const v2x=C.x-B.x,v2y=C.y-B.y,len2=Math.hypot(v2x,v2y);
+    if(len1<1e-9||len2<1e-9){ out.push(B); continue; }
+    // e1/e2 point from B back toward A and forward toward C
+    const e1x=-v1x/len1,e1y=-v1y/len1, e2x=v2x/len2,e2y=v2y/len2;
+    const dot=Math.min(1,Math.max(-1,e1x*e2x+e1y*e2y));
+    const deflection=Math.PI-Math.acos(dot); // 0=straight, larger=sharper turn
+    if(deflection<thresh){ out.push(B); continue; }
+    const interior=Math.PI-deflection;
+    let t=radiusMM/Math.tan(interior/2);
+    t=Math.min(t,len1*0.5,len2*0.5);
+    if(t<1e-6){ out.push(B); continue; }
+    const actualR=t*Math.tan(interior/2);
+    const P1={x:B.x+e1x*t,y:B.y+e1y*t};
+    const P2={x:B.x+e2x*t,y:B.y+e2y*t};
+    const bx=e1x+e2x,by=e1y+e2y,bLen=Math.hypot(bx,by);
+    if(bLen<1e-9){ out.push(B); continue; }
+    const sinHalf=Math.sin(interior/2);
+    const O={x:B.x+(bx/bLen)*(actualR/sinHalf),y:B.y+(by/bLen)*(actualR/sinHalf)};
+    const steps=Math.max(3,Math.min(16,Math.round(actualR)));
+    out.push(P1);
+    for(const p of sampleArc(O,actualR,Math.atan2(P1.y-O.y,P1.x-O.x),Math.atan2(P2.y-O.y,P2.x-O.x),steps)) out.push(p);
+    out.push(P2);
+  }
+  out.push(rawPts[n-1]);
+  return out;
+}
+
+// Preview-only — this never touches `pts` (what's downloaded/sent to print),
+// only `renderPts` (what's drawn on screen).
+function smoothPathForPreview(rawPts,radiusMM){
+  return filletCorners(rawPts,radiusMM);
+}
+
+function syncTableObjectFromInputs(){
+  const w=Math.max(50,parseFloat(document.getElementById('tbl-w').value)||515);
+  const h=Math.max(50,parseFloat(document.getElementById('tbl-h').value)||320);
+  const xMin=5, yMin=5, xMax=xMin+w, yMax=yMin+h;
+  Object.assign(TABLE,{xMin,xMax,yMin,yMax,w,h,cx:(xMin+xMax)/2,cy:(yMin+yMax)/2});
+}
+
+function pushTableSizeToWasm(){
+  if(!wasmReady) return;
+  set_table_size(TABLE.xMin,TABLE.xMax,TABLE.yMin,TABLE.yMax);
+}
+
+// Re-renders whatever's currently on screen so it reflects the new table
+// size — regenerated fresh for algorithmic patterns, re-fit in place for
+// static/dropped G-code that can't be regenerated from parameters.
+async function refreshCurrentPattern(){
+  if(activeSource==='gallery'&&activeGalleryPreset) await regenerateGalleryPreset();
+  else if(activeSource==='custom') await generateCustomAndLoad();
+  else if(activeSource==='dropped'&&pts.length){
+    const fitted=fitPointsToTable(pts,0.03);
+    loadGcodeString(ptsToGcode(fitted,(currentName||'pattern').replace(/\.gcode$/i,'')),currentName);
+  } else {
+    resizeCanvas();
+  }
+}
+
+async function applyTableDims(){
+  syncTableObjectFromInputs();
+  pushTableSizeToWasm();
+  resizeCanvas();
+  await refreshCurrentPattern();
+}
+
+['tbl-w','tbl-h'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{
+    localStorage.setItem(id,document.getElementById(id).value);
+    applyTableDims();
+  });
+});
+document.getElementById('tbl-groove').addEventListener('change',()=>{
+  localStorage.setItem('tbl-groove',document.getElementById('tbl-groove').value);
+  redrawPreservingProgress();
+});
+document.getElementById('tbl-corner').addEventListener('change',()=>{
+  localStorage.setItem('tbl-corner',document.getElementById('tbl-corner').value);
+  renderPts=smoothPathForPreview(pts,cornerRoundingMM());
+  redrawPreservingProgress();
+});
+
+// ═══════════════ G-CODE LOADING ═══════════════
+function parseGcode(text){
+  const re=/G1\s+X([+-]?\d+\.?\d*)\s+Y([+-]?\d+\.?\d*)/g;
+  const out=[]; let m;
+  while((m=re.exec(text))!==null) out.push({x:+m[1],y:+m[2]});
+  return out;
+}
+
+function loadGcodeString(gcode,name){
+  currentGcode=gcode; currentName=name;
+  pts=parseGcode(gcode);
+  if(!pts.length){setStatus('No G1 moves found.','#a00');return;}
+  renderPts=smoothPathForPreview(pts,cornerRoundingMM());
+  stop(); idx=0; accumulated=0;
+  drawComplete();
+  document.getElementById('btn-play').disabled=false;
+  document.getElementById('btn-reset').disabled=false;
+  document.getElementById('btn-download').disabled=false;
+  document.getElementById('btn-send').disabled=false;
+  setStatus(`${name}  —  ${pts.length.toLocaleString()} points`,'#555');
+}
+
+// ═══════════════ CANVAS DRAWING ═══════════════
+function clearCanvas(){
+  const W=pathCanvas.width,H=pathCanvas.height;
+  ctx.fillStyle='#2a1d0e'; ctx.fillRect(0,0,W,H);
+  const[x1,y1]=t2c(TABLE.xMin,TABLE.yMax),[x2,y2]=t2c(TABLE.xMax,TABLE.yMin);
+  ctx.strokeStyle='#3a2a18'; ctx.lineWidth=1;
+  ctx.strokeRect(x1,y1,x2-x1,y2-y1);
+  bctx.clearRect(0,0,ballCanvas.width,ballCanvas.height);
+}
+
+function drawBall(pt){
+  bctx.clearRect(0,0,ballCanvas.width,ballCanvas.height);
+  if(!document.getElementById('show-ball').checked||!pt) return;
+  const[bx,by]=t2c(pt.x,pt.y);
+  bctx.beginPath(); bctx.arc(bx,by,5,0,Math.PI*2); bctx.fillStyle='#fff'; bctx.fill();
+  bctx.beginPath(); bctx.arc(bx,by,3,0,Math.PI*2); bctx.fillStyle='#bbb'; bctx.fill();
+}
+
+function drawComplete(){
+  clearCanvas();
+  if(pts.length<2) return;
+  ctx.beginPath(); ctx.strokeStyle='#d4a96a'; ctx.lineWidth=grooveStrokePx(); ctx.lineCap='round'; ctx.lineJoin='round';
+  const[sx,sy]=t2c(renderPts[0].x,renderPts[0].y); ctx.moveTo(sx,sy);
+  for(let i=1;i<renderPts.length;i++){const[px,py]=t2c(renderPts[i].x,renderPts[i].y);ctx.lineTo(px,py);}
+  ctx.stroke();
+  idx=renderPts.length-1;
+  document.getElementById('progress-bar').style.width='100%';
+}
+
+// Re-renders exactly what's already been revealed (idx unchanged), for
+// rendering-only changes (groove width, corner rounding, window resize).
+// Unlike drawComplete(), this never jumps ahead or touches playback state,
+// so it doesn't cut off an in-progress animation.
+function redrawPreservingProgress(){
+  clearCanvas();
+  if(renderPts.length<2) return;
+  const upTo=Math.min(idx,renderPts.length-1);
+  if(upTo>=1){
+    ctx.beginPath(); ctx.strokeStyle='#d4a96a'; ctx.lineWidth=grooveStrokePx(); ctx.lineCap='round'; ctx.lineJoin='round';
+    const[sx,sy]=t2c(renderPts[0].x,renderPts[0].y); ctx.moveTo(sx,sy);
+    for(let i=1;i<=upTo;i++){const[px,py]=t2c(renderPts[i].x,renderPts[i].y);ctx.lineTo(px,py);}
+    ctx.stroke();
+  }
+  document.getElementById('progress-bar').style.width=`${(upTo/(renderPts.length-1)*100).toFixed(1)}%`;
+  if(!running) drawBall(renderPts[upTo]||null);
+}
+
+// ═══════════════ PLAYBACK ═══════════════
+const btnPlay=document.getElementById('btn-play');
+const btnPause=document.getElementById('btn-pause');
+const progressBar=document.getElementById('progress-bar');
+
+function sliderToRate(v){return Math.round(Math.exp(v*Math.log(100000)/100));}
+function fmtRate(r){return r>=10000?Math.round(r/1000)+'k pts/s':r>=1000?(r/1000).toFixed(1)+'k pts/s':r+' pts/s';}
+function updateSpeedReadout(){document.getElementById('speed-readout').textContent=fmtRate(sliderToRate(+document.getElementById('speed').value));}
+
+function play(){
+  if(!renderPts.length) return;
+  if(idx>=renderPts.length-1){idx=0;accumulated=0;clearCanvas();}
+  running=true; accumulated=0;
+  btnPlay.disabled=true; btnPause.disabled=false;
+  lastTime=performance.now(); animId=requestAnimationFrame(tick);
+}
+function pause(){
+  running=false; btnPlay.disabled=false; btnPause.disabled=true;
+  if(animId)cancelAnimationFrame(animId); drawBall(renderPts[idx]);
+}
+function stop(){
+  running=false; if(animId)cancelAnimationFrame(animId);
+  btnPlay.disabled=pts.length===0; btnPause.disabled=true;
+}
+function resetDraw(){
+  stop(); idx=0; accumulated=0;
+  progressBar.style.width='0%'; clearCanvas();
+  if(pts.length>0) drawBall(renderPts[0]);
+  btnPlay.disabled=pts.length===0;
+  document.getElementById('btn-reset').disabled=pts.length===0;
+}
+
+function tick(now){
+  if(!running) return;
+  const dt=Math.min(now-lastTime,100); lastTime=now;
+  const rate=sliderToRate(+document.getElementById('speed').value);
+  accumulated+=rate*dt/1000;
+  const adv=Math.floor(accumulated); accumulated-=adv;
+  const trailFade=+document.getElementById('trail').value;
+  if(trailFade>0){ctx.fillStyle=`rgba(42,29,14,${trailFade/255})`;ctx.fillRect(0,0,pathCanvas.width,pathCanvas.height);}
+  if(adv<1){animId=requestAnimationFrame(tick);return;}
+  const end=Math.min(idx+adv,renderPts.length-1);
+  if(idx<end){
+    ctx.beginPath(); ctx.strokeStyle='#d4a96a'; ctx.lineWidth=grooveStrokePx(); ctx.lineCap='round'; ctx.lineJoin='round';
+    const[sx,sy]=t2c(renderPts[idx].x,renderPts[idx].y); ctx.moveTo(sx,sy);
+    for(let i=idx+1;i<=end;i++){const[px,py]=t2c(renderPts[i].x,renderPts[i].y);ctx.lineTo(px,py);}
+    ctx.stroke(); drawBall(renderPts[end]); idx=end;
+  }
+  progressBar.style.width=`${(idx/(renderPts.length-1)*100).toFixed(1)}%`;
+  if(idx>=renderPts.length-1){
+    bctx.clearRect(0,0,ballCanvas.width,ballCanvas.height);
+    stop(); progressBar.style.width='100%'; btnPlay.disabled=true; return;
+  }
+  animId=requestAnimationFrame(tick);
+}
+
+btnPlay.addEventListener('click',play);
+btnPause.addEventListener('click',pause);
+document.getElementById('btn-reset').addEventListener('click',resetDraw);
+document.getElementById('speed').addEventListener('input',updateSpeedReadout);
+document.getElementById('show-ball').addEventListener('change',()=>{if(!running)drawBall(renderPts[idx]||null);});
+
+// ═══════════════ DOWNLOAD ═══════════════
+document.getElementById('btn-download').addEventListener('click',()=>{
+  if(!currentGcode) return;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([currentGcode],{type:'text/plain'}));
+  a.download=currentName||'pattern.gcode'; a.click();
+});
+
+// ═══════════════ OCTOPRINT ═══════════════
+['op-url','op-key'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.value=localStorage.getItem(id)||'';
+  el.addEventListener('change',()=>localStorage.setItem(id,el.value));
+});
+
+let octoConnected=false, octoState='', pollTimer=null, octoServerName='', octoFailCount=0;
+const uploadedGcode={}; // filename → gcode string
+let printQueue=[];       // [{name,gcode}]
+let prevWasPrinting=false;
+let fetchingFile=null;   // filename currently being fetched from OctoPrint
+
+const octoBaseUrl=()=>(document.getElementById('op-url').value||'').trim().replace(/\/$/,'');
+const octoApiKey =()=>(document.getElementById('op-key').value||'').trim();
+
+async function octoFetch(path,opts={}){
+  return fetch(octoBaseUrl()+path,{
+    ...opts,
+    headers:{'X-Api-Key':octoApiKey(),...(opts.headers||{})}
+  });
+}
+
+// ── Connection ──────────────────────────────────────────────────────────────
+document.getElementById('btn-connect').addEventListener('click',connectOcto);
+document.getElementById('btn-disconnect').addEventListener('click',disconnectOcto);
+
+async function connectOcto(){
+  const url=octoBaseUrl(), key=octoApiKey();
+  if(!url||!key){ setBadge('Enter server URL and API key first','#a00'); return; }
+  setBadge('Connecting…','#888');
+  try{
+    const r=await octoFetch('/api/version');
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const v=await r.json();
+    octoConnected=true;
+    octoServerName=v.server;
+    octoFailCount=0;
+    localStorage.setItem('op-active','1');
+    // Swap form → summary
+    document.getElementById('conn-form').style.display='none';
+    document.getElementById('conn-summary').style.display='block';
+    setConnSummary(`● Connected — OctoPrint ${octoServerName}`,'#4a8');
+    document.getElementById('octo-live').style.display='block';
+    // Clear any stale log messages from before connection
+    document.getElementById('print-log').innerHTML='';
+    renderQueue();
+    startPolling();
+  }catch(e){
+    setBadge('Connection failed — check URL and CORS settings','#c00');
+    octoLog('Tip: enable CORS in OctoPrint → Settings → API','#555');
+    octoConnected=false;
+    localStorage.setItem('op-active','0');
+  }
+}
+
+function disconnectOcto(){
+  octoConnected=false;
+  localStorage.setItem('op-active','0');
+  if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  document.getElementById('conn-form').style.display='block';
+  document.getElementById('conn-summary').style.display='none';
+  document.getElementById('octo-live').style.display='none';
+  document.getElementById('octo-preview-wrap').style.display='none';
+  setBadge('','#555');
+}
+
+function setConnSummary(msg,color){
+  const el=document.getElementById('conn-summary-text');
+  el.textContent=msg; el.style.color=color;
+}
+
+// ── Home sequence ────────────────────────────────────────────────────────────
+// Replays the manual re-homing ritual: enable limits, soft-reset, run the
+// homing cycle, then disable limits again so normal drawing moves aren't
+// rejected as out-of-range. GRBL/OctoPrint process each queued command in
+// order and won't send the next until the previous one's acknowledged, so
+// $H genuinely blocks until the physical homing cycle finishes — the delays
+// below are just pacing for the log messages, not load-bearing for ordering.
+async function sendGrblCommand(cmd){
+  octoLogRaw(cmd==='\x18' ? '(soft reset / Ctrl-X)' : cmd);
+  const r=await octoFetch('/api/printer/command',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({command:cmd})
+  });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+}
+
+// Manual GRBL terminal — sends whatever's typed, verbatim, via the same
+// sendGrblCommand() used elsewhere (so it's logged the same way too).
+function sendManualGrblCommand(){
+  if(!octoConnected) return;
+  const input=document.getElementById('grbl-cmd-input');
+  const cmd=input.value.trim();
+  if(!cmd) return;
+  input.value='';
+  sendGrblCommand(cmd).catch(e=>octoLog('Send failed: '+(e.message||e),'#c00'));
+}
+document.getElementById('btn-grbl-send').addEventListener('click',sendManualGrblCommand);
+document.getElementById('grbl-cmd-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter') sendManualGrblCommand();
+});
+
+// ── Serial (re)connect ──────────────────────────────────────────────────────
+// Distinct from connectOcto() above — that's the web app talking to
+// OctoPrint's HTTP API, which can succeed even when OctoPrint itself has no
+// serial link to the board. This tells OctoPrint to open that link.
+async function connectPrinterSerial(){
+  const btn=document.getElementById('btn-connect-serial');
+  btn.disabled=true;
+  try{
+    octoLogRaw('POST /api/connection {command:"connect"}');
+    const r=await octoFetch('/api/connection',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({command:'connect'})
+    });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    octoLog('Connecting to printer over serial…','#c8a06a');
+  }catch(e){
+    octoLog('Connect failed: '+(e.message||e),'#c00');
+  }finally{
+    btn.disabled=false;
+  }
+}
+document.getElementById('btn-connect-serial').addEventListener('click',connectPrinterSerial);
+
+// Auto-reconnect using saved credentials — runs on every page load so a
+// closed tab or refresh doesn't require re-entering the API key.
+if(localStorage.getItem('op-active')==='1'&&octoBaseUrl()&&octoApiKey()){
+  connectOcto();
+}
+
+function setBadge(msg,color){
+  const el=document.getElementById('conn-badge');
+  el.textContent=msg; el.style.color=color;
+}
+
+// ── Polling ─────────────────────────────────────────────────────────────────
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollPrinter();
+  pollTimer=setInterval(pollPrinter,3000);
+}
+
+async function pollPrinter(){
+  if(!octoConnected) return;
+  try{
+    const [jobRes,printerRes]=await Promise.all([
+      octoFetch('/api/job'),
+      octoFetch('/api/printer').catch(()=>null)
+    ]);
+    if(!jobRes.ok) throw new Error(`HTTP ${jobRes.status}`);
+    const job=await jobRes.json();
+    if(octoFailCount>0){
+      octoFailCount=0;
+      setConnSummary(`● Connected — OctoPrint ${octoServerName}`,'#4a8');
+    }
+
+    // Temperatures
+    if(printerRes?.ok){
+      const pr=await printerRes.json();
+      const t=pr.temperature||{};
+      const parts=[];
+      if(t.tool0) parts.push(`🌡 ${t.tool0.actual.toFixed(0)}°`);
+      if(t.bed)   parts.push(`⬛ ${t.bed.actual.toFixed(0)}°`);
+      document.getElementById('octo-temps').textContent=parts.join('  ');
+    }
+
+    // State — OctoPrint has several state strings for "not connected to the
+    // board" (Offline, Offline after error, Closed, Closed with error), so
+    // match by prefix/substring rather than a fixed exact-match list.
+    const s=job.state||'Unknown';
+    octoState=s;
+    const sLower=s.toLowerCase();
+    const isDisconnected=s.startsWith('Offline')||s.startsWith('Closed');
+    let stateColor='#ccc';
+    if(s==='Operational') stateColor='#4a8';
+    else if(s==='Printing') stateColor='#c8a06a';
+    else if(s==='Paused') stateColor='#f4a';
+    else if(s==='Cancelling') stateColor='#c66';
+    else if(sLower.includes('error')) stateColor='#c00';
+    else if(isDisconnected) stateColor='#e08a30';
+    const stateEl=document.getElementById('octo-state');
+    stateEl.textContent=s; stateEl.style.color=stateColor;
+
+    // OctoPrint's own app connection (what we polled just fine above) is
+    // separate from its serial link to the printer — a restart often leaves
+    // OctoPrint reachable but not yet connected to the board.
+    document.getElementById('octo-serial-offline').style.display=isDisconnected ? 'block' : 'none';
+
+    const isPrinting=s==='Printing'||s==='Paused';
+    const isIdle=s==='Operational';
+
+    // Auto-start next queued item when printer becomes idle
+    if(prevWasPrinting&&isIdle&&printQueue.length>0){
+      octoLog('Print finished — starting next in queue','#888');
+      sendNextInQueue();
+    }
+    prevWasPrinting=isPrinting;
+
+    // Job progress
+    const prog=job.progress, jobFile=job.job?.file?.name||'';
+    document.getElementById('octo-file').textContent=isPrinting?jobFile:'';
+
+    // Fetch G-code from OctoPrint if we don't have it locally yet
+    if(isPrinting&&jobFile&&!uploadedGcode[jobFile]&&fetchingFile!==jobFile){
+      fetchJobGcode(jobFile, job.job?.file?.refs?.download||null);
+    }
+    const progWrap=document.getElementById('octo-prog-wrap');
+    if(isPrinting&&prog&&prog.completion!=null){
+      progWrap.style.display='block';
+      document.getElementById('octo-prog-bar').style.width=prog.completion.toFixed(1)+'%';
+      document.getElementById('octo-prog-pct').textContent=prog.completion.toFixed(0)+'%';
+      const left=prog.printTimeLeft;
+      document.getElementById('octo-time-left').textContent=
+        left!=null?(left<60?`${left}s`:`${Math.floor(left/60)}m ${left%60}s`):'';
+      updateMiniCanvas(jobFile,prog.completion/100);
+    }else{
+      progWrap.style.display='none';
+      document.getElementById('octo-preview-wrap').style.display='none';
+    }
+  }catch(e){
+    // Printer/network may be temporarily unreachable — keep polling silently
+    // for a few tries, then surface it so it's not mistaken for a hang.
+    octoFailCount++;
+    if(octoFailCount===3) setConnSummary('⚠ Reconnecting to OctoPrint…','#c96');
+  }
+}
+
+// ── Mini drawing canvas ──────────────────────────────────────────────────────
+async function fetchJobGcode(filename, downloadUrl){
+  fetchingFile=filename;
+  try{
+    // Prefer the download URL from the job response; fall back to constructing it.
+    const bare=filename.split('/').pop();
+    const url=downloadUrl||`${octoBaseUrl()}/downloads/files/local/${encodeURIComponent(bare)}`;
+    const r=await fetch(url,{headers:{'X-Api-Key':octoApiKey()}});
+    if(r.ok){
+      uploadedGcode[filename]=await r.text();
+      octoLog(`Loaded G-code from printer: ${bare}`,'#555');
+    }
+  }catch(e){ /* silent — preview simply won't show */ }
+  finally{ fetchingFile=null; }
+}
+
+let miniPts=[], miniJobName='';
+
+// Mini-canvas fixed pixel dimensions — never use clientWidth (it's 0 when parent
+// just became visible, causing the canvas to silently render into a 0×0 buffer).
+const MINI_W=260, MINI_H=Math.round(260*TABLE.h/TABLE.w);
+
+function updateMiniCanvas(filename,fraction){
+  const bare=filename?filename.split('/').pop():'';
+  const gcode=uploadedGcode[filename]||uploadedGcode[bare]||null;
+
+  // Always show the panel while printing — don't wait for G-code to arrive.
+  const wrap=document.getElementById('octo-preview-wrap');
+  wrap.style.display='block';
+
+  const canvas=document.getElementById('mini-canvas');
+  canvas.width=MINI_W; canvas.height=MINI_H;
+  const mc=canvas.getContext('2d');
+  mc.fillStyle='#2a1d0e'; mc.fillRect(0,0,MINI_W,MINI_H);
+
+  if(!gcode){
+    // G-code not yet fetched — show a placeholder
+    mc.font=`11px system-ui,sans-serif`;
+    mc.fillStyle='#3a2a18';
+    mc.textAlign='center';
+    mc.textBaseline='middle';
+    mc.fillText('Fetching pattern…', MINI_W/2, MINI_H/2);
+    return;
+  }
+
+  if(filename!==miniJobName){
+    miniPts=parseGcode(gcode);
+    miniJobName=filename;
+  }
+  if(!miniPts.length) return;
+
+  const M=Math.round(MINI_W*0.025);
+  const tc=(x,y)=>[M+(x-TABLE.xMin)/TABLE.w*(MINI_W-2*M), M+(TABLE.yMax-y)/TABLE.h*(MINI_H-2*M)];
+
+  // Full path (dim)
+  mc.beginPath(); mc.strokeStyle='#3a2a18'; mc.lineWidth=1;
+  const[sx,sy]=tc(miniPts[0].x,miniPts[0].y); mc.moveTo(sx,sy);
+  for(let i=1;i<miniPts.length;i++){const[px,py]=tc(miniPts[i].x,miniPts[i].y);mc.lineTo(px,py);}
+  mc.stroke();
+
+  // Completed portion (bright)
+  const end=Math.min(Math.floor(miniPts.length*fraction),miniPts.length-1);
+  if(end>0){
+    mc.beginPath(); mc.strokeStyle='#d4a96a'; mc.lineWidth=1.5;
+    const[sx2,sy2]=tc(miniPts[0].x,miniPts[0].y); mc.moveTo(sx2,sy2);
+    for(let i=1;i<=end;i++){const[px,py]=tc(miniPts[i].x,miniPts[i].y);mc.lineTo(px,py);}
+    mc.stroke();
+    const[bx,by]=tc(miniPts[end].x,miniPts[end].y);
+    mc.beginPath(); mc.arc(bx,by,3.5,0,Math.PI*2); mc.fillStyle='#fff'; mc.fill();
+  }
+}
+
+
+// ── Queue ────────────────────────────────────────────────────────────────────
+function renderQueue(){
+  document.getElementById('queue-count').textContent=printQueue.length;
+  const list=document.getElementById('queue-list');
+  if(!printQueue.length){
+    list.innerHTML='<div style="font-size:0.68rem;color:#333;padding:2px 0">Empty</div>';
+    return;
+  }
+  list.innerHTML=printQueue.map((item,i)=>
+    `<div style="display:flex;align-items:center;gap:5px;padding:3px 0;border-bottom:1px solid #1e1e1e">
+      <span style="font-size:0.68rem;color:#444;flex:0 0 14px">${i+1}.</span>
+      <span style="flex:1;font-size:0.72rem;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${item.name}">${item.name}</span>
+      <button onclick="dequeue(${i})" style="background:none;border:none;color:#444;cursor:pointer;font-size:0.85rem;line-height:1;padding:0 2px">✕</button>
+    </div>`
+  ).join('');
+}
+
+window.dequeue=function(i){ printQueue.splice(i,1); renderQueue(); };
+document.getElementById('btn-clear-queue').addEventListener('click',()=>{ printQueue=[]; renderQueue(); });
+
+async function sendNextInQueue(){
+  if(!printQueue.length||!octoConnected) return;
+  const item=printQueue.shift();
+  renderQueue();
+  await uploadToOcto(item.name,item.gcode,true);
+}
+
+// ── Upload ───────────────────────────────────────────────────────────────────
+async function uploadToOcto(name,gcode,startPrint){
+  if(startPrint) gcode=withBoundaryLeadIn(gcode,name);
+  const form=new FormData();
+  form.append('file',new Blob([gcode],{type:'text/plain'}),name);
+  form.append('select','true');
+  if(startPrint) form.append('print','true');
+  try{
+    const r=await octoFetch('/api/files/local',{method:'POST',body:form});
+    if(!r.ok){
+      const txt=await r.text().catch(()=>'');
+      octoLog(`Upload failed (HTTP ${r.status}): ${txt.slice(0,100)}`,'#c00');
+      return false;
+    }
+    uploadedGcode[name]=gcode;
+    octoLog(startPrint?`▶ Printing: ${name}`:`✓ Uploaded: ${name}`,'#4a8');
+    return true;
+  }catch(e){
+    const msg=e.message||'';
+    if(msg.includes('fetch')||msg.includes('CORS')||msg.includes('Network')){
+      octoLog('Network error — check CORS in OctoPrint → Settings → API','#c00');
+    }else{
+      octoLog('Error: '+msg,'#c00');
+    }
+    return false;
+  }
+}
+
+// ── Smart Send button ────────────────────────────────────────────────────────
+document.getElementById('btn-send').addEventListener('click',async()=>{
+  if(!currentGcode){ octoLog('No pattern loaded — generate one first','#a00'); activateTab('print'); return; }
+  if(!octoConnected){
+    activateTab('print');
+    setBadge('Not connected — enter URL and API key, then click Connect','#a00');
+    return;
+  }
+  const fname=currentName||'pattern.gcode';
+  const isPrinting=octoState==='Printing'||octoState==='Paused';
+  if(isPrinting){
+    printQueue.push({name:fname,gcode:currentGcode});
+    renderQueue();
+    activateTab('print');
+    octoLog(`Printer busy — queued: ${fname}`,'#c8a06a');
+  }else{
+    activateTab('print');
+    await uploadToOcto(fname,currentGcode,true);
+  }
+});
+
+// Every log line gets a timestamp (so it's unambiguous which one is newest
+// even after scrolling) and a brief highlight that fades out, so a freshly
+// arrived line visibly announces itself instead of silently appearing.
+function appendLogLine(text,msgStyle){
+  const log=document.getElementById('print-log');
+  const line=document.createElement('div');
+  line.style.cssText='padding:2px 0;border-bottom:1px solid #1a1a1a;display:flex;gap:6px;align-items:baseline;background-color:rgba(200,160,106,0.3);transition:background-color 1.2s ease';
+  const timeEl=document.createElement('span');
+  timeEl.style.cssText='color:#444;font-size:0.6rem;flex:0 0 auto;font-variant-numeric:tabular-nums';
+  timeEl.textContent=new Date().toLocaleTimeString([],{hour12:false});
+  const msgEl=document.createElement('span');
+  msgEl.style.cssText=msgStyle+';flex:1;min-width:0';
+  msgEl.textContent=text;
+  line.append(timeEl,msgEl);
+  log.prepend(line);
+  // Two rAFs so the initial highlight color actually paints before the
+  // transition to transparent starts (a single frame can get coalesced).
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ line.style.backgroundColor='transparent'; }));
+  // Keep last 25 messages
+  while(log.children.length>25) log.removeChild(log.lastChild);
+}
+
+function octoLog(msg,color='#555'){
+  appendLogLine(msg,`font-size:0.68rem;color:${color}`);
+}
+
+// Shows the literal command text sent to the printer, terminal-style —
+// separate from octoLog's human-readable narration.
+function octoLogRaw(cmd){
+  appendLogLine('→ '+cmd,'font-size:0.66rem;font-family:ui-monospace,Menlo,Consolas,monospace;color:#7a8a7a');
+}
+
+// ═══════════════ PANEL TABS ═══════════════
+let currentTab='gallery';
+function activateTab(name){
+  currentTab=name;
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  document.querySelectorAll('.tab-body').forEach(b=>b.classList.toggle('active',b.id==='tab-'+name));
+  document.getElementById('btn-generate').style.display=name==='custom'?'':'none';
+}
+document.querySelectorAll('.ptab').forEach(t=>t.addEventListener('click',()=>activateTab(t.dataset.tab)));
+
+// ═══════════════ CUSTOM TAB TYPE SELECTOR ═══════════════
+let currentType='rose';
+document.querySelectorAll('.type-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.params').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active'); currentType=btn.dataset.type;
+    document.getElementById('p-'+currentType).classList.add('active');
+  });
+});
+
+window.setSpiroMode=function(m){
+  spiroMode=m;
+  document.getElementById('sp-hypo').classList.toggle('active',m==='hypo');
+  document.getElementById('sp-epi').classList.toggle('active',m==='epi');
+};
+
+// Fractal hints
+const LS_HINTS={
+  koch:'Traces the outline of a Koch snowflake — a triangle whose edges are recursively notched into smaller triangles.',
+  sierpinski:'A triangle subdivided into smaller triangles, with the middle removed each time.',
+  plant:'A branching fractal that looks like a fern or leafy plant. The branches are asymmetric by design.',
+  dragon:'Created by folding a strip of paper in half repeatedly. Gets more elaborate with each fold.',
+  gosper:'A space-filling curve shaped like a irregular hexagon. Looks like a solid blob at high depth.',
+  hilbert:'A space-filling curve that visits every point in a square grid. Looks like a maze at high depth. Great for erasing old patterns.',
+};
+document.getElementById('ls-p').addEventListener('change',function(){
+  document.getElementById('ls-hint').textContent=LS_HINTS[this.value]||'';
+});
+document.getElementById('ls-hint').textContent=LS_HINTS['koch'];
+
+// ═══════════════ FILE DROP ZONES ═══════════════
+function setupDrop(dropId,inputId,cb){
+  const drop=document.getElementById(dropId), inp=document.getElementById(inputId);
+  drop.addEventListener('click',()=>inp.click());
+  inp.addEventListener('change',()=>{if(inp.files[0])cb(inp.files[0]);});
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+  drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files[0])cb(e.dataTransfer.files[0]);});
+}
+setupDrop('gcode-drop','gcode-file',f=>{f.text().then(t=>{activeSource='dropped';loadGcodeString(t,f.name);});});
+setupDrop('svg-drop','svg-file',f=>{document.getElementById('svg-fname').textContent='Selected: '+f.name;});
+pathCanvas.addEventListener('dragover',e=>e.preventDefault());
+pathCanvas.addEventListener('drop',e=>{
+  e.preventDefault();
+  const f=e.dataTransfer.files[0];
+  if(f&&f.name.toLowerCase().endsWith('.gcode')) f.text().then(t=>{activeSource='dropped';loadGcodeString(t,f.name);});
+});
+
+// ═══════════════ HELPERS ═══════════════
+function setStatus(msg,color='#555'){const el=document.getElementById('status');el.style.color=color;el.textContent=msg;}
+window.sv=(id,val)=>document.getElementById(id).textContent=val;
+window.ff=v=>parseFloat(v).toFixed(2);
+window.fff=v=>parseFloat(v).toFixed(3);
+
+// ═══════════════ INIT ═══════════════
+buildGallery();
+syncTableObjectFromInputs();
+resizeCanvas();
+updateSpeedReadout();
+await init();
+wasmReady=true;
+pushTableSizeToWasm();
+setStatus('Ready — pick a preset from the Gallery tab.','#555');
+</script>
+</body>
+</html>

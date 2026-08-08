@@ -1,0 +1,30 @@
+[package]
+name = "sandscript"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "sandscript"
+path = "src/main.rs"
+
+[dependencies]
+# Core — compiles on all targets including wasm32
+noise = "0.9"
+roxmltree = "0.20"
+kurbo = "0.11"
+anyhow = "1"
+wasm-bindgen = "0.2"
+
+# Native only — not needed / won't compile in wasm32
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+clap = { version = "4", features = ["derive"] }
+
+# WASM only — better panic messages in browser console
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0.1"
+
+[profile.release]
+opt-level = "s"
