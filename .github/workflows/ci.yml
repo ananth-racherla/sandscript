@@ -12,6 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify checked-in WASM matches Rust source
+        run: |
+          expected=$(cat frontend/src/wasm-source.sha256)
+          actual=$(./scripts/hash-rust-source.sh)
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::frontend/src/wasm/ is out of date with the Rust source in src/. Run 'npm run wasm:build' in frontend/ and commit the result (including frontend/src/wasm-source.sha256)."
+            exit 1
+          fi
+          echo "Checked-in WASM matches current Rust source ($actual)."
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
