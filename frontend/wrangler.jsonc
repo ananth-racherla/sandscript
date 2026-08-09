@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sandscript",
+  "compatibility_date": "2026-08-08",
+  "assets": {
+    // Vite's build output — see package.json's "build" script.
+    "directory": "./dist",
+    // TanStack Router uses browser history (pushState) routing, so a
+    // direct load of e.g. /custom or /print has no matching static file.
+    // This tells Workers to fall back to index.html for those, same as
+    // any other client-side-routed SPA needs from its host.
+    "not_found_handling": "single-page-application"
+  }
+}
