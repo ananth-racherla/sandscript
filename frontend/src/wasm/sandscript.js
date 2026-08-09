@@ -58,15 +58,18 @@ export function gen_flowfield(seed, particles, particle_steps, noise_scale, stre
  * @param {string} svg_text
  * @param {number} spu
  * @param {number} margin
+ * @param {number} min_feature_frac
+ * @param {boolean} flip_horizontal
+ * @param {boolean} flip_vertical
  * @returns {string}
  */
-export function gen_from_svg(svg_text, spu, margin) {
+export function gen_from_svg(svg_text, spu, margin, min_feature_frac, flip_horizontal, flip_vertical) {
     let deferred3_0;
     let deferred3_1;
     try {
         const ptr0 = passStringToWasm0(svg_text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.gen_from_svg(ptr0, len0, spu, margin);
+        const ret = wasm.gen_from_svg(ptr0, len0, spu, margin, min_feature_frac, flip_horizontal, flip_vertical);
         var ptr2 = ret[0];
         var len2 = ret[1];
         if (ret[3]) {

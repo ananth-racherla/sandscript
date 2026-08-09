@@ -38,6 +38,18 @@ enum Command {
         spu: f64,
         #[arg(long, default_value_t = 0.05)]
         margin: f64,
+        /// Drop shapes smaller than this fraction of the whole drawing's
+        /// bounding-box diagonal (0 keeps everything, e.g. 0.03 drops tiny
+        /// details like an eye on an otherwise-large silhouette)
+        #[arg(long, default_value_t = 0.0)]
+        min_feature: f64,
+        /// Mirror left-right
+        #[arg(long, default_value_t = false)]
+        flip_h: bool,
+        /// Mirror top-bottom, on top of the automatic SVG-to-table
+        /// orientation correction (SVG is Y-down, the table is Y-up)
+        #[arg(long, default_value_t = false)]
+        flip_v: bool,
         #[arg(long, default_value_t = 2000)]
         feedrate: u32,
     },
@@ -167,10 +179,14 @@ fn main() -> Result<()> {
             output,
             spu,
             margin,
+            min_feature,
+            flip_h,
+            flip_v,
             feedrate,
         } => {
             let text = fs::read_to_string(&input)?;
-            let gcode = gen_from_svg_gcode(&text, spu, margin, feedrate)?;
+            let gcode =
+                gen_from_svg_gcode(&text, spu, margin, min_feature, flip_h, flip_v, feedrate)?;
             fs::write(&output, gcode)?;
             eprintln!("Wrote {}", output.display());
         }

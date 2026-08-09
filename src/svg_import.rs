@@ -6,7 +6,22 @@ use std::borrow::Cow;
 use std::f64::consts::PI;
 
 /// Parse an SVG file and return all shapes sampled into polylines.
-pub fn parse_svg(svg_text: &str, samples_per_unit: f64) -> Result<Vec<Vec<Pt>>> {
+///
+/// `min_feature_frac` drops shapes whose own bounding-box diagonal is
+/// smaller than this fraction of the whole drawing's — small decorative
+/// details (an eye on an otherwise-large silhouette) cost a full
+/// pen-lift-and-travel round trip but barely register as a physical
+/// feature at sand-table scale. 0 keeps everything.
+///
+/// `flip_horizontal`/`flip_vertical` mirror the result on top of the
+/// automatic vertical correction described on `apply_flip`.
+pub fn parse_svg(
+    svg_text: &str,
+    samples_per_unit: f64,
+    min_feature_frac: f64,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+) -> Result<Vec<Vec<Pt>>> {
     let cleaned = strip_doctype(svg_text);
     let doc = Document::parse(&cleaned).context("SVG parse error")?;
     let mut segments: Vec<Vec<Pt>> = Vec::new();
@@ -14,7 +29,55 @@ pub fn parse_svg(svg_text: &str, samples_per_unit: f64) -> Result<Vec<Vec<Pt>>> 
     if segments.is_empty() {
         bail!("No drawable shapes found in SVG");
     }
+    segments = filter_tiny_shapes(segments, min_feature_frac);
+    if segments.is_empty() {
+        bail!("All shapes were smaller than the minimum feature size — try lowering it");
+    }
+    apply_flip(&mut segments, flip_horizontal, flip_vertical);
     Ok(segments)
+}
+
+fn bbox_diag(pts: &[Pt]) -> f64 {
+    let (mut minx, mut maxx, mut miny, mut maxy) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+    for p in pts {
+        minx = minx.min(p.x);
+        maxx = maxx.max(p.x);
+        miny = miny.min(p.y);
+        maxy = maxy.max(p.y);
+    }
+    ((maxx - minx).powi(2) + (maxy - miny).powi(2)).sqrt()
+}
+
+fn filter_tiny_shapes(segments: Vec<Vec<Pt>>, min_frac: f64) -> Vec<Vec<Pt>> {
+    if min_frac <= 0.0 || segments.len() <= 1 {
+        return segments;
+    }
+    let all_pts: Vec<Pt> = segments.iter().flatten().copied().collect();
+    let overall_diag = bbox_diag(&all_pts);
+    if overall_diag < 1e-9 {
+        return segments;
+    }
+    segments
+        .into_iter()
+        .filter(|seg| bbox_diag(seg) / overall_diag >= min_frac)
+        .collect()
+}
+
+/// SVG uses a Y-down coordinate system (origin top-left); the sand table
+/// uses standard Y-up (origin bottom-left, see PreviewCanvas's t2c / the
+/// table struct in gcode.rs), so copying coordinates as-is draws every
+/// import upside down. Corrected here by default — `flip_vertical` flips
+/// it again on top (for an intentional mirror), and `flip_horizontal` is a
+/// plain optional left-right mirror with no inherent correction needed.
+fn apply_flip(segments: &mut [Vec<Pt>], flip_horizontal: bool, flip_vertical: bool) {
+    let sx = if flip_horizontal { -1.0 } else { 1.0 };
+    let sy = if flip_vertical { 1.0 } else { -1.0 };
+    for seg in segments.iter_mut() {
+        for p in seg.iter_mut() {
+            p.x *= sx;
+            p.y *= sy;
+        }
+    }
 }
 
 /// Strips a leading `<!DOCTYPE ...>` declaration, if present. Most icon and
@@ -337,7 +400,7 @@ mod tests {
 
     #[test]
     fn parses_svg_with_doctype() {
-        let result = parse_svg(WITH_DOCTYPE, 1.0);
+        let result = parse_svg(WITH_DOCTYPE, 1.0, 0.0, false, false);
         assert!(result.is_ok(), "{:?}", result.err());
         assert!(!result.unwrap().is_empty());
     }
@@ -349,7 +412,7 @@ mod tests {
         let svg = "<!DOCTYPE svg [ <!ENTITY foo \"a>b\"> ]>\n<svg xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M0 0 L1 1\"/></svg>";
         let cleaned = strip_doctype(svg);
         assert!(!cleaned.contains("<!DOCTYPE"));
-        assert!(parse_svg(&cleaned, 1.0).is_ok());
+        assert!(parse_svg(&cleaned, 1.0, 0.0, false, false).is_ok());
     }
 
     #[test]
@@ -361,7 +424,7 @@ mod tests {
     #[test]
     fn parses_circle() {
         let svg = r#"<svg xmlns="http://www.w3.org/2000/svg"><circle cx="5" cy="5" r="3"/></svg>"#;
-        let segs = parse_svg(svg, 1.0).unwrap();
+        let segs = parse_svg(svg, 1.0, 0.0, false, false).unwrap();
         assert_eq!(segs.len(), 1);
         assert!(segs[0].len() > 8);
     }
@@ -369,11 +432,11 @@ mod tests {
     #[test]
     fn parses_rect_plain_and_rounded() {
         let plain = r#"<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="10" height="5"/></svg>"#;
-        let segs = parse_svg(plain, 1.0).unwrap();
+        let segs = parse_svg(plain, 1.0, 0.0, false, false).unwrap();
         assert_eq!(segs[0].len(), 5); // 4 corners + closing point
 
         let rounded = r#"<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="10" height="5" rx="1" ry="1"/></svg>"#;
-        let segs = parse_svg(rounded, 1.0).unwrap();
+        let segs = parse_svg(rounded, 1.0, 0.0, false, false).unwrap();
         assert!(segs[0].len() > 5);
     }
 
@@ -381,13 +444,13 @@ mod tests {
     fn parses_polyline_and_polygon() {
         let polyline =
             r#"<svg xmlns="http://www.w3.org/2000/svg"><polyline points="0,0 5,5 10,0"/></svg>"#;
-        let segs = parse_svg(polyline, 1.0).unwrap();
+        let segs = parse_svg(polyline, 1.0, 0.0, false, false).unwrap();
         assert_eq!(segs[0].len(), 3);
 
         // polygon implicitly closes back to the first point
         let polygon =
             r#"<svg xmlns="http://www.w3.org/2000/svg"><polygon points="0,0 5,5 10,0"/></svg>"#;
-        let segs = parse_svg(polygon, 1.0).unwrap();
+        let segs = parse_svg(polygon, 1.0, 0.0, false, false).unwrap();
         assert_eq!(segs[0].len(), 4);
         assert_eq!((segs[0][0].x, segs[0][0].y), (segs[0][3].x, segs[0][3].y));
     }
@@ -395,7 +458,7 @@ mod tests {
     #[test]
     fn parses_line() {
         let svg = r#"<svg xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="0" x2="10" y2="10"/></svg>"#;
-        let segs = parse_svg(svg, 1.0).unwrap();
+        let segs = parse_svg(svg, 1.0, 0.0, false, false).unwrap();
         assert_eq!(segs[0].len(), 2);
     }
 
@@ -403,7 +466,7 @@ mod tests {
     fn tolerates_unit_suffixes_on_numeric_attributes() {
         let svg =
             r#"<svg xmlns="http://www.w3.org/2000/svg"><circle cx="5px" cy="5px" r="3px"/></svg>"#;
-        let segs = parse_svg(svg, 1.0).unwrap();
+        let segs = parse_svg(svg, 1.0, 0.0, false, false).unwrap();
         assert!(!segs.is_empty());
     }
 
@@ -411,13 +474,74 @@ mod tests {
     fn shapes_nested_inside_groups_are_found() {
         let svg =
             r#"<svg xmlns="http://www.w3.org/2000/svg"><g><g><path d="M0 0 L1 1"/></g></g></svg>"#;
-        assert!(parse_svg(svg, 1.0).is_ok());
+        assert!(parse_svg(svg, 1.0, 0.0, false, false).is_ok());
     }
 
     #[test]
     fn empty_svg_gives_clear_error_not_a_panic() {
         let svg = r#"<svg xmlns="http://www.w3.org/2000/svg"></svg>"#;
-        let err = parse_svg(svg, 1.0).unwrap_err();
+        let err = parse_svg(svg, 1.0, 0.0, false, false).unwrap_err();
         assert!(err.to_string().contains("No drawable shapes found"));
+    }
+
+    #[test]
+    fn default_orientation_flips_y_to_match_the_table() {
+        // SVG's Y-down origin means a point below-and-right of the origin
+        // in source coordinates (positive x, positive y) must come out
+        // with a *negated* y once corrected for the table's Y-up
+        // convention — x is untouched by the default (no flip requested).
+        let svg =
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="0" x2="3" y2="7"/></svg>"#;
+        let segs = parse_svg(svg, 1.0, 0.0, false, false).unwrap();
+        assert_eq!((segs[0][1].x, segs[0][1].y), (3.0, -7.0));
+    }
+
+    #[test]
+    fn flip_vertical_cancels_the_default_correction() {
+        let svg =
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="0" x2="3" y2="7"/></svg>"#;
+        let segs = parse_svg(svg, 1.0, 0.0, false, true).unwrap();
+        assert_eq!((segs[0][1].x, segs[0][1].y), (3.0, 7.0));
+    }
+
+    #[test]
+    fn flip_horizontal_mirrors_x() {
+        let svg =
+            r#"<svg xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="0" x2="3" y2="7"/></svg>"#;
+        let segs = parse_svg(svg, 1.0, 1.0, true, false).unwrap();
+        // min_feature_frac=1.0 is harmless here — there's only one segment,
+        // and filter_tiny_shapes never drops the sole remaining segment.
+        assert_eq!((segs[0][1].x, segs[0][1].y), (-3.0, -7.0));
+    }
+
+    #[test]
+    fn min_feature_frac_drops_small_isolated_shapes() {
+        // A tiny circle (diameter 2) next to a large one (diameter 200) —
+        // the small one is ~1% of the combined bounding box's diagonal.
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg">
+            <circle cx="0" cy="0" r="100"/>
+            <circle cx="250" cy="0" r="1"/>
+        </svg>"#;
+
+        let kept_both = parse_svg(svg, 1.0, 0.0, false, false).unwrap();
+        assert_eq!(kept_both.len(), 2);
+
+        let dropped_small = parse_svg(svg, 1.0, 0.05, false, false).unwrap();
+        assert_eq!(dropped_small.len(), 1);
+    }
+
+    #[test]
+    fn min_feature_frac_too_aggressive_gives_clear_error() {
+        // Two small circles, far apart — neither is individually large
+        // relative to their combined bounding box, so a strict enough
+        // threshold drops both, leaving nothing to draw.
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg">
+            <circle cx="0" cy="0" r="1"/>
+            <circle cx="200" cy="0" r="1"/>
+        </svg>"#;
+        let err = parse_svg(svg, 1.0, 0.5, false, false).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("smaller than the minimum feature size"));
     }
 }

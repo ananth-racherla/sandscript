@@ -112,6 +112,19 @@ export function ParamForm({
           );
         }
 
+        if (p.kind === 'checkbox') {
+          const v = values[p.key] as boolean;
+          return (
+            <div key={p.key}>
+              <label className="flex items-center gap-1.5 text-[0.74rem] text-ink-dim">
+                <input type="checkbox" checked={v} onChange={(e) => onChange(p.key, e.target.checked)} />
+                {p.label}
+              </label>
+              {p.hint && <div className="mt-1 text-[0.68rem] leading-snug text-ink-muted">{p.hint}</div>}
+            </div>
+          );
+        }
+
         return (
           <SvgDropZone key={p.key} label={p.label} hint={p.hint} file={values[p.key] as File | null} onSelect={(f) => onChange(p.key, f)} />
         );
