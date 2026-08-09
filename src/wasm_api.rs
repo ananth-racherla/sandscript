@@ -82,9 +82,26 @@ pub fn gen_flowfield(
 }
 
 /// Convert SVG text to G-code.
+#[allow(clippy::too_many_arguments)]
 #[wasm_bindgen]
-pub fn gen_from_svg(svg_text: &str, spu: f64, margin: f64) -> Result<String, JsValue> {
-    crate::gen_from_svg_gcode(svg_text, spu, margin, 2000).map_err(e)
+pub fn gen_from_svg(
+    svg_text: &str,
+    spu: f64,
+    margin: f64,
+    min_feature_frac: f64,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+) -> Result<String, JsValue> {
+    crate::gen_from_svg_gcode(
+        svg_text,
+        spu,
+        margin,
+        min_feature_frac,
+        flip_horizontal,
+        flip_vertical,
+        2000,
+    )
+    .map_err(e)
 }
 
 /// Maurer rose web pattern.  n=5,d=97 or n=6,d=71 are stunning.

@@ -1,6 +1,33 @@
 import type { ParamFormat, ParamSpec } from '../../patterns/configs';
 import { SvgDropZone } from './SvgDropZone';
 
+const arrowStyle = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+
+/** A double-headed arrow crossing a dashed mirror axis, perpendicular to
+ * it — the axis is what's being mirrored across, the arrow is the two
+ * halves swapping sides. */
+function FlipHorizontalIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+      <line x1="10" y1="2" x2="10" y2="18" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2,2" />
+      <polyline points="6,6 2,10 6,14" {...arrowStyle} />
+      <polyline points="14,6 18,10 14,14" {...arrowStyle} />
+      <line x1="4" y1="10" x2="16" y2="10" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
+function FlipVerticalIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+      <line x1="2" y1="10" x2="18" y2="10" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2,2" />
+      <polyline points="6,6 10,2 14,6" {...arrowStyle} />
+      <polyline points="6,14 10,18 14,14" {...arrowStyle} />
+      <line x1="10" y1="4" x2="10" y2="16" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 function formatValue(v: number, format?: ParamFormat): string {
   switch (format) {
     case 'float2':
@@ -108,6 +135,40 @@ export function ParamForm({
                   </button>
                 ))}
               </div>
+            </div>
+          );
+        }
+
+        if (p.kind === 'checkbox') {
+          const v = values[p.key] as boolean;
+          return (
+            <div key={p.key}>
+              <label className="flex items-center gap-1.5 text-[0.74rem] text-ink-dim">
+                <input type="checkbox" checked={v} onChange={(e) => onChange(p.key, e.target.checked)} />
+                {p.label}
+              </label>
+              {p.hint && <div className="mt-1 text-[0.68rem] leading-snug text-ink-muted">{p.hint}</div>}
+            </div>
+          );
+        }
+
+        if (p.kind === 'icon-toggle') {
+          const v = values[p.key] as boolean;
+          return (
+            <div key={p.key}>
+              <button
+                type="button"
+                onClick={() => onChange(p.key, !v)}
+                title={p.label}
+                aria-pressed={v}
+                className={`flex items-center gap-1.5 rounded border px-2 py-1.5 text-[0.72rem] transition-colors ${
+                  v ? 'border-accent-border bg-accent-bg text-accent' : 'border-input-border bg-input text-ink-dim hover:text-ink'
+                }`}
+              >
+                {p.icon === 'flip-horizontal' ? <FlipHorizontalIcon /> : <FlipVerticalIcon />}
+                {p.label}
+              </button>
+              {p.hint && <div className="mt-1 text-[0.68rem] leading-snug text-ink-muted">{p.hint}</div>}
             </div>
           );
         }

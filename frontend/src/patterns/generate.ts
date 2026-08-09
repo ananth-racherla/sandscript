@@ -14,6 +14,7 @@ export interface GenerateResult {
 export async function generateCustomGcode(type: string, values: Record<string, unknown>, table: TableBounds): Promise<GenerateResult> {
   const num = (key: string) => values[key] as number;
   const str = (key: string) => values[key] as string;
+  const bool = (key: string) => values[key] as boolean;
 
   let gcode: string;
   let name: string;
@@ -59,7 +60,7 @@ export async function generateCustomGcode(type: string, values: Record<string, u
       const file = values.svgFile as File | null;
       if (!file) throw new Error('No SVG file selected — click the SVG panel to pick one');
       const text = await file.text();
-      gcode = wasm.genFromSvg(text, num('spu'), num('margin'));
+      gcode = wasm.genFromSvg(text, num('spu'), num('margin'), num('minFeature'), bool('flipHorizontal'), bool('flipVertical'));
       name = 'from_svg';
       break;
     }

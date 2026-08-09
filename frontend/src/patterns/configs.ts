@@ -11,7 +11,9 @@ export type ParamSpec =
   | { kind: 'number'; key: string; label: string; min?: number; max?: number; default: number; hint?: string }
   | { kind: 'select'; key: string; label: string; options: { value: string; label: string; hint?: string }[]; default: string }
   | { kind: 'toggle'; key: string; label: string; options: { value: string; label: string }[]; default: string }
-  | { kind: 'file'; key: string; label: string; accept: string; hint?: string };
+  | { kind: 'file'; key: string; label: string; accept: string; hint?: string }
+  | { kind: 'checkbox'; key: string; label: string; default: boolean; hint?: string }
+  | { kind: 'icon-toggle'; key: string; label: string; icon: 'flip-horizontal' | 'flip-vertical'; default: boolean; hint?: string };
 
 export interface PatternConfig {
   id: string;
@@ -147,6 +149,9 @@ export const PATTERN_CONFIGS: PatternConfig[] = [
       { kind: 'file', key: 'svgFile', label: 'SVG outline file', accept: '.svg', hint: 'Single-stroke silhouettes work best. Search "animal silhouette svg" on thenounproject.com.' },
       { kind: 'slider', key: 'spu', label: 'Curve smoothness', min: 0.1, max: 5, step: 0.1, default: 0.5, format: 'float2', hint: 'Increase for SVGs with very small or tight curves' },
       { kind: 'slider', key: 'margin', label: 'Border margin', min: 0, max: 0.2, step: 0.01, default: 0.05, format: 'float2' },
+      { kind: 'slider', key: 'minFeature', label: 'Drop small details', min: 0, max: 0.15, step: 0.005, default: 0, format: 'float3', hint: 'Skips isolated shapes smaller than this fraction of the whole drawing — useful for dropping a tiny eye/detail that otherwise costs an extra travel line to reach' },
+      { kind: 'icon-toggle', key: 'flipHorizontal', label: 'Flip left / right', icon: 'flip-horizontal', default: false },
+      { kind: 'icon-toggle', key: 'flipVertical', label: 'Flip top / bottom', icon: 'flip-vertical', default: false, hint: 'The correct orientation is already the default (SVGs are authored top-down; the table is bottom-up) — this flips it again, e.g. to mirror a design intentionally' },
     ],
   },
 ];

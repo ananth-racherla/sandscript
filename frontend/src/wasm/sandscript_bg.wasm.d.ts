@@ -3,7 +3,7 @@
 export const memory: WebAssembly.Memory;
 export const gen_butterfly: (a: number) => [number, number, number, number];
 export const gen_flowfield: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
-export const gen_from_svg: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const gen_from_svg: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
 export const gen_lissajous: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const gen_logarithmic: (a: number, b: number, c: number) => [number, number, number, number];
 export const gen_lsystem: (a: number, b: number, c: number, d: number) => [number, number, number, number];

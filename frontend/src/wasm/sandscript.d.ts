@@ -14,7 +14,7 @@ export function gen_flowfield(seed: number, particles: number, particle_steps: n
 /**
  * Convert SVG text to G-code.
  */
-export function gen_from_svg(svg_text: string, spu: number, margin: number): string;
+export function gen_from_svg(svg_text: string, spu: number, margin: number, min_feature_frac: number, flip_horizontal: boolean, flip_vertical: boolean): string;
 
 /**
  * Lissajous figure.  steps fixed at 8 000.
@@ -78,7 +78,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly gen_butterfly: (a: number) => [number, number, number, number];
     readonly gen_flowfield: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
-    readonly gen_from_svg: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly gen_from_svg: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => [number, number, number, number];
     readonly gen_lissajous: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly gen_logarithmic: (a: number, b: number, c: number) => [number, number, number, number];
     readonly gen_lsystem: (a: number, b: number, c: number, d: number) => [number, number, number, number];

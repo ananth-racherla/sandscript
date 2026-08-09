@@ -1,9 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PATTERN_CONFIGS } from '../../patterns/configs';
 import { generateCustomGcode } from '../../patterns/generate';
 import { usePatternStore } from '../../store/patternStore';
 import { useTableStore } from '../../store/tableStore';
 import { ParamForm } from './ParamForm';
+
+const DEBOUNCE_MS = 300;
 
 export function CustomPanel() {
   const customType = usePatternStore((s) => s.customType);
@@ -17,31 +19,60 @@ export function CustomPanel() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reads customType/customValues fresh via getState() every time it runs,
-  // so once registered as patternStore.regenerateActive, a later table
-  // resize regenerates whatever the form's *current* values are — not
-  // whatever they were at the moment "Generate" was last clicked.
+  // Returns whether generation succeeded, so the caller decides what to do
+  // next (claim regenerateActive ownership) — kept out of this function's
+  // own body so it isn't self-referencing itself before its `const` is
+  // assigned.
   const regenerateFromCurrent = useCallback(async () => {
     const s = usePatternStore.getState();
+    const type = s.customType;
+    const currentValues = s.customValues[type];
+    // SVG needs a file before there's anything to generate — quietly wait
+    // rather than surfacing an error for a perfectly normal not-ready state.
+    if (type === 'svg' && !currentValues.svgFile) {
+      return false;
+    }
     const table = useTableStore.getState().table;
-    const { gcode, name } = await generateCustomGcode(s.customType, s.customValues[s.customType], table);
-    usePatternStore.getState().loadPattern(gcode, name, 'custom');
-  }, []);
-
-  async function handleGenerate() {
     setGenerating(true);
     setError(null);
     try {
-      await regenerateFromCurrent();
-      // Only claims ownership of regenerateActive on a successful generate
-      // — matching Gallery's pattern of never registering on mount alone.
-      usePatternStore.getState().setRegenerator(regenerateFromCurrent);
+      const { gcode, name } = await generateCustomGcode(type, currentValues, table);
+      usePatternStore.getState().loadPattern(gcode, name, 'custom');
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return false;
     } finally {
       setGenerating(false);
     }
-  }
+  }, []);
+
+  // Auto-regenerate whenever the active type or its param values change,
+  // debounced so dragging a slider doesn't fire a wasm call on every tick
+  // — same "settle before acting" idea as the commit-on-blur/release
+  // pattern used elsewhere (table settings, gallery symmetry), just via a
+  // short timer instead of waiting for pointer-up, so switching type or
+  // tweaking a value updates the preview on its own without an explicit
+  // "Generate" step. Skips the very first run (component mount) so just
+  // *looking* at the Custom tab doesn't silently replace whatever's
+  // currently showing (e.g. a Gallery selection) with Custom's default —
+  // only an actual change should do that, matching Gallery's own rule of
+  // never claiming regenerateActive ownership without actually generating.
+  const isFirstRun = useRef(true);
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      if (await regenerateFromCurrent()) {
+        usePatternStore.getState().setRegenerator(async () => {
+          await regenerateFromCurrent();
+        });
+      }
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [customType, values, regenerateFromCurrent]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -81,17 +112,10 @@ export function CustomPanel() {
             </div>
           </div>
         )}
-      </div>
-
-      <div className="border-t border-panel-border px-2.5 py-2.5">
-        <button
-          className="w-full rounded-[5px] border border-accent-border bg-accent-bg py-1.5 text-[0.8rem] text-accent transition-colors hover:bg-accent-bg-hover disabled:cursor-default disabled:opacity-30"
-          disabled={generating}
-          onClick={handleGenerate}
-        >
-          {generating ? 'Generating…' : '⚡ Generate & Preview'}
-        </button>
-        {error && <div className="mt-1.5 text-[0.7rem] text-danger">Error: {error}</div>}
+        <div className="mt-3 min-h-[1.1em] text-[0.7rem]">
+          {generating && <span className="text-ink-muted">Generating…</span>}
+          {error && <span className="text-danger">Error: {error}</span>}
+        </div>
       </div>
     </div>
   );

@@ -124,8 +124,23 @@ pub fn gen_flowfield_gcode(
     write_gcode("flowfield", &pts, feedrate)
 }
 
-pub fn gen_from_svg_gcode(svg_text: &str, spu: f64, margin: f64, feedrate: u32) -> Result<String> {
-    let segments = svg_import::parse_svg(svg_text, spu)?;
+#[allow(clippy::too_many_arguments)]
+pub fn gen_from_svg_gcode(
+    svg_text: &str,
+    spu: f64,
+    margin: f64,
+    min_feature_frac: f64,
+    flip_horizontal: bool,
+    flip_vertical: bool,
+    feedrate: u32,
+) -> Result<String> {
+    let segments = svg_import::parse_svg(
+        svg_text,
+        spu,
+        min_feature_frac,
+        flip_horizontal,
+        flip_vertical,
+    )?;
     let pts = svg_import::stitch(segments);
     let pts = fit_to_table(&pts, margin);
     write_gcode("from_svg", &pts, feedrate)
