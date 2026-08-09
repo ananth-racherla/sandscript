@@ -8,7 +8,7 @@ use std::f64::consts::PI;
 pub fn hypotrochoid(big_r: f64, small_r: f64, pen_d: f64, steps: usize) -> Vec<Pt> {
     let periods = rational_periods(big_r, small_r);
     let total = 2.0 * PI * periods;
-    let norm = (big_r - small_r).abs() + pen_d;  // max possible radius
+    let norm = (big_r - small_r).abs() + pen_d; // max possible radius
     (0..=steps)
         .map(|i| {
             let t = total * i as f64 / steps as f64;
@@ -23,7 +23,7 @@ pub fn hypotrochoid(big_r: f64, small_r: f64, pen_d: f64, steps: usize) -> Vec<P
 pub fn epitrochoid(big_r: f64, small_r: f64, pen_d: f64, steps: usize) -> Vec<Pt> {
     let periods = rational_periods(big_r, small_r);
     let total = 2.0 * PI * periods;
-    let norm = big_r + small_r + pen_d;  // max possible radius
+    let norm = big_r + small_r + pen_d; // max possible radius
     (0..=steps)
         .map(|i| {
             let t = total * i as f64 / steps as f64;

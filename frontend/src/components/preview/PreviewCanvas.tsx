@@ -73,7 +73,7 @@ export function PreviewCanvas() {
   // UI-facing state — updates are infrequent (button clicks, slider drags,
   // pattern loads), not per-frame, so these are fine as React state.
   const [isPlaying, setIsPlaying] = useState(false);
-  const [hasPattern, setHasPattern] = useState(false);
+  const hasPattern = pts.length > 0; // pure derived value, not worth its own state
   const [speed, setSpeedState] = useState(50);
   const [trail, setTrailState] = useState(0);
   const [showBall, setShowBallState] = useState(true);
@@ -81,7 +81,6 @@ export function PreviewCanvas() {
 
   useEffect(() => {
     ptsRef.current = pts;
-    setHasPattern(pts.length > 0);
   }, [pts]);
   useEffect(() => {
     tableRef.current = table;

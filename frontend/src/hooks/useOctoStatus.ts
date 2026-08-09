@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchJob, fetchPrinter, fetchFileText, type OctoJob, type OctoPrinter } from '../lib/octoprint/client';
 import type { OctoStatusView } from '../lib/octoprint/types';
 import { useOctoprintStore, type QueueItem } from '../store/octoprintStore';
@@ -53,21 +53,30 @@ export function useOctoStatus(connected: boolean, onAutoAdvance: (item: QueueIte
   });
 
   const failCountRef = useRef(0);
-  const reconnectingRef = useRef(false);
   const prevWasPrintingRef = useRef(false);
   const fetchingFileRef = useRef<string | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
 
-  if (!connected) {
-    failCountRef.current = 0;
-    reconnectingRef.current = false;
-    prevWasPrintingRef.current = false;
-  } else if (query.isError) {
-    failCountRef.current++;
-    if (failCountRef.current === 3) reconnectingRef.current = true;
-  } else if (query.data && failCountRef.current > 0) {
-    failCountRef.current = 0;
-    reconnectingRef.current = false;
-  }
+  // Refs must only be read/written inside effects (or event handlers), never
+  // during render — mutating them here would run on every render pass,
+  // including StrictMode's extra dev-only re-invocations, which would
+  // double-count the fail streak. This effect is the fail-streak tracker
+  // itself; the auto-advance effect below is a separate concern.
+  useEffect(() => {
+    if (!connected) {
+      failCountRef.current = 0;
+      prevWasPrintingRef.current = false;
+      setReconnecting(false);
+      return;
+    }
+    if (query.isError) {
+      failCountRef.current++;
+      if (failCountRef.current === 3) setReconnecting(true);
+    } else if (query.data && failCountRef.current > 0) {
+      failCountRef.current = 0;
+      setReconnecting(false);
+    }
+  }, [connected, query.isError, query.data]);
 
   // Auto-start the next queued item once the printer transitions from
   // printing into idle — mirrors the old app's prevWasPrinting-diffed check.
@@ -117,7 +126,7 @@ export function useOctoStatus(connected: boolean, onAutoAdvance: (item: QueueIte
 
   return {
     connected,
-    reconnecting: reconnectingRef.current,
+    reconnecting,
     state,
     isDisconnected: state.startsWith('Offline') || state.startsWith('Closed'),
     isPrinting,

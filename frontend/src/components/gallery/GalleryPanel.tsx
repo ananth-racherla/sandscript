@@ -1,7 +1,8 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback } from 'react';
 import { PRESETS, buildGcodeFromPreset, type Preset } from '../../patterns/presets';
 import { usePatternStore } from '../../store/patternStore';
 import { useTableStore } from '../../store/tableStore';
+import { useDraftValue } from '../../hooks/useDraftValue';
 import { PresetCard } from './PresetCard';
 
 const CATEGORIES = [...new Set(PRESETS.map((p) => p.cat))];
@@ -40,8 +41,7 @@ export function GalleryPanel() {
     await regenerateFromSelection();
   }
 
-  const [symDraft, setSymDraft] = useState(gallerySelection?.sym ?? 1);
-  useEffect(() => setSymDraft(gallerySelection?.sym ?? 1), [gallerySelection?.sym]);
+  const [symDraft, setSymDraft] = useDraftValue(gallerySelection?.sym ?? 1);
 
   async function commitSym(sym: number) {
     if (!gallerySelection) return;

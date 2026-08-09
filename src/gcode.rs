@@ -13,24 +13,52 @@ struct TableDims {
 }
 
 thread_local! {
-    static TABLE: Cell<TableDims> = Cell::new(TableDims {
-        x_min: 5.0, x_max: 520.0, y_min: 5.0, y_max: 325.0,
-    });
+    static TABLE: Cell<TableDims> = const {
+        Cell::new(TableDims {
+            x_min: 5.0,
+            x_max: 520.0,
+            y_min: 5.0,
+            y_max: 325.0,
+        })
+    };
 }
 
 /// Set the table's working area. Affects every pattern generated afterward.
 pub fn set_table_dims(x_min: f64, x_max: f64, y_min: f64, y_max: f64) {
-    TABLE.with(|t| t.set(TableDims { x_min, x_max, y_min, y_max }));
+    TABLE.with(|t| {
+        t.set(TableDims {
+            x_min,
+            x_max,
+            y_min,
+            y_max,
+        })
+    });
 }
 
-pub fn table_x_min() -> f64 { TABLE.with(|t| t.get().x_min) }
-pub fn table_x_max() -> f64 { TABLE.with(|t| t.get().x_max) }
-pub fn table_y_min() -> f64 { TABLE.with(|t| t.get().y_min) }
-pub fn table_y_max() -> f64 { TABLE.with(|t| t.get().y_max) }
-pub fn table_cx() -> f64 { (table_x_min() + table_x_max()) / 2.0 }
-pub fn table_cy() -> f64 { (table_y_min() + table_y_max()) / 2.0 }
-pub fn table_w() -> f64 { table_x_max() - table_x_min() }
-pub fn table_h() -> f64 { table_y_max() - table_y_min() }
+pub fn table_x_min() -> f64 {
+    TABLE.with(|t| t.get().x_min)
+}
+pub fn table_x_max() -> f64 {
+    TABLE.with(|t| t.get().x_max)
+}
+pub fn table_y_min() -> f64 {
+    TABLE.with(|t| t.get().y_min)
+}
+pub fn table_y_max() -> f64 {
+    TABLE.with(|t| t.get().y_max)
+}
+pub fn table_cx() -> f64 {
+    (table_x_min() + table_x_max()) / 2.0
+}
+pub fn table_cy() -> f64 {
+    (table_y_min() + table_y_max()) / 2.0
+}
+pub fn table_w() -> f64 {
+    table_x_max() - table_x_min()
+}
+pub fn table_h() -> f64 {
+    table_y_max() - table_y_min()
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Pt {
@@ -68,10 +96,18 @@ pub fn normalize_to_table(pts: &[Pt], scale: f64) -> Vec<Pt> {
 fn bbox(pts: &[Pt]) -> (f64, f64, f64, f64) {
     let (mut minx, mut maxx, mut miny, mut maxy) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
     for p in pts {
-        if p.x < minx { minx = p.x; }
-        if p.x > maxx { maxx = p.x; }
-        if p.y < miny { miny = p.y; }
-        if p.y > maxy { maxy = p.y; }
+        if p.x < minx {
+            minx = p.x;
+        }
+        if p.x > maxx {
+            maxx = p.x;
+        }
+        if p.y < miny {
+            miny = p.y;
+        }
+        if p.y > maxy {
+            maxy = p.y;
+        }
     }
     (minx, maxx, miny, maxy)
 }
@@ -94,10 +130,7 @@ pub fn fit_to_table(pts: &[Pt], margin_frac: f64) -> Vec<Pt> {
     let (tcx, tcy) = (table_cx(), table_cy());
 
     pts.iter()
-        .map(|p| Pt::new(
-            tcx + (p.x - cx) * scale,
-            tcy + (p.y - cy) * scale,
-        ))
+        .map(|p| Pt::new(tcx + (p.x - cx) * scale, tcy + (p.y - cy) * scale))
         .collect()
 }
 
@@ -122,10 +155,7 @@ pub fn fit_to_table_stretch(pts: &[Pt], margin_frac: f64) -> Vec<Pt> {
     let (tcx, tcy) = (table_cx(), table_cy());
 
     pts.iter()
-        .map(|p| Pt::new(
-            tcx + (p.x - cx) * sx,
-            tcy + (p.y - cy) * sy,
-        ))
+        .map(|p| Pt::new(tcx + (p.x - cx) * sx, tcy + (p.y - cy) * sy))
         .collect()
 }
 
@@ -171,7 +201,7 @@ pub fn deduplicate(pts: &[Pt], tol: f64) -> Vec<Pt> {
     let tol2 = tol * tol;
     let mut out: Vec<Pt> = Vec::with_capacity(pts.len());
     for &p in pts {
-        if out.last().map_or(true, |last: &Pt| last.dist2(&p) > tol2) {
+        if out.last().is_none_or(|last: &Pt| last.dist2(&p) > tol2) {
             out.push(p);
         }
     }
@@ -189,8 +219,12 @@ pub fn parse_gcode_pts(gcode: &str) -> Vec<Pt> {
         let mut x: Option<f64> = None;
         let mut y: Option<f64> = None;
         for tok in line.split_whitespace() {
-            if let Some(v) = tok.strip_prefix('X') { x = v.parse().ok(); }
-            if let Some(v) = tok.strip_prefix('Y') { y = v.parse().ok(); }
+            if let Some(v) = tok.strip_prefix('X') {
+                x = v.parse().ok();
+            }
+            if let Some(v) = tok.strip_prefix('Y') {
+                y = v.parse().ok();
+            }
         }
         if let (Some(x), Some(y)) = (x, y) {
             pts.push(Pt::new(x, y));

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use sandscript::{
-    gen_rose_gcode, gen_lissajous_gcode, gen_spirograph_gcode,
-    gen_spiral_gcode, gen_lsystem_gcode, gen_flowfield_gcode, gen_from_svg_gcode,
+    gen_flowfield_gcode, gen_from_svg_gcode, gen_lissajous_gcode, gen_lsystem_gcode,
+    gen_rose_gcode, gen_spiral_gcode, gen_spirograph_gcode,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -142,17 +142,33 @@ enum PatternKind {
 }
 
 #[derive(Clone, ValueEnum)]
-enum SpiroMode { Hypo, Epi }
+enum SpiroMode {
+    Hypo,
+    Epi,
+}
 
 #[derive(Clone, ValueEnum)]
-enum LSystemPreset { Hilbert, Gosper, Sierpinski, Dragon, Koch, Plant }
+enum LSystemPreset {
+    Hilbert,
+    Gosper,
+    Sierpinski,
+    Dragon,
+    Koch,
+    Plant,
+}
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Command::Examples => print_examples(),
 
-        Command::FromSvg { input, output, spu, margin, feedrate } => {
+        Command::FromSvg {
+            input,
+            output,
+            spu,
+            margin,
+            feedrate,
+        } => {
             let text = fs::read_to_string(&input)?;
             let gcode = gen_from_svg_gcode(&text, spu, margin, feedrate)?;
             fs::write(&output, gcode)?;
@@ -161,32 +177,106 @@ fn main() -> Result<()> {
 
         Command::Pattern { kind } => {
             let (name, gcode) = match kind {
-                PatternKind::Rose { n, d, steps, scale, output, feedrate } =>
-                    (output, gen_rose_gcode(n, d, steps, scale, feedrate)?),
+                PatternKind::Rose {
+                    n,
+                    d,
+                    steps,
+                    scale,
+                    output,
+                    feedrate,
+                } => (output, gen_rose_gcode(n, d, steps, scale, feedrate)?),
 
-                PatternKind::Lissajous { a, b, delta, steps, scale, output, feedrate } =>
-                    (output, gen_lissajous_gcode(a, b, delta, steps, scale, feedrate)?),
+                PatternKind::Lissajous {
+                    a,
+                    b,
+                    delta,
+                    steps,
+                    scale,
+                    output,
+                    feedrate,
+                } => (
+                    output,
+                    gen_lissajous_gcode(a, b, delta, steps, scale, feedrate)?,
+                ),
 
-                PatternKind::Spirograph { big_r, small_r, pen_d, mode, steps, scale, output, feedrate } =>
-                    (output, gen_spirograph_gcode(big_r, small_r, pen_d, matches!(mode, SpiroMode::Epi), steps, scale, feedrate)?),
+                PatternKind::Spirograph {
+                    big_r,
+                    small_r,
+                    pen_d,
+                    mode,
+                    steps,
+                    scale,
+                    output,
+                    feedrate,
+                } => (
+                    output,
+                    gen_spirograph_gcode(
+                        big_r,
+                        small_r,
+                        pen_d,
+                        matches!(mode, SpiroMode::Epi),
+                        steps,
+                        scale,
+                        feedrate,
+                    )?,
+                ),
 
-                PatternKind::Spiral { turns, gap, steps, scale, output, feedrate } =>
-                    (output, gen_spiral_gcode(turns, gap, steps, scale, feedrate)?),
+                PatternKind::Spiral {
+                    turns,
+                    gap,
+                    steps,
+                    scale,
+                    output,
+                    feedrate,
+                } => (
+                    output,
+                    gen_spiral_gcode(turns, gap, steps, scale, feedrate)?,
+                ),
 
-                PatternKind::Lsystem { preset, depth, scale, output, feedrate } => {
+                PatternKind::Lsystem {
+                    preset,
+                    depth,
+                    scale,
+                    output,
+                    feedrate,
+                } => {
                     let preset_str = match preset {
-                        LSystemPreset::Hilbert    => "hilbert",
-                        LSystemPreset::Gosper     => "gosper",
+                        LSystemPreset::Hilbert => "hilbert",
+                        LSystemPreset::Gosper => "gosper",
                         LSystemPreset::Sierpinski => "sierpinski",
-                        LSystemPreset::Dragon     => "dragon",
-                        LSystemPreset::Koch       => "koch",
-                        LSystemPreset::Plant      => "plant",
+                        LSystemPreset::Dragon => "dragon",
+                        LSystemPreset::Koch => "koch",
+                        LSystemPreset::Plant => "plant",
                     };
-                    (output, gen_lsystem_gcode(preset_str, depth, scale, feedrate)?)
+                    (
+                        output,
+                        gen_lsystem_gcode(preset_str, depth, scale, feedrate)?,
+                    )
                 }
 
-                PatternKind::Flowfield { seed, particles, steps, step_size, noise_scale, strength, scale, output, feedrate } =>
-                    (output, gen_flowfield_gcode(seed, particles, steps, step_size, noise_scale, strength, scale, feedrate)?),
+                PatternKind::Flowfield {
+                    seed,
+                    particles,
+                    steps,
+                    step_size,
+                    noise_scale,
+                    strength,
+                    scale,
+                    output,
+                    feedrate,
+                } => (
+                    output,
+                    gen_flowfield_gcode(
+                        seed,
+                        particles,
+                        steps,
+                        step_size,
+                        noise_scale,
+                        strength,
+                        scale,
+                        feedrate,
+                    )?,
+                ),
             };
             fs::write(&name, gcode)?;
             eprintln!("Wrote {}", name.display());
@@ -196,7 +286,8 @@ fn main() -> Result<()> {
 }
 
 fn print_examples() {
-    println!(r#"
+    println!(
+        r#"
 sandscript examples — run 'sandscript pattern <TYPE> --help' for all options.
 Open index.html in a browser for the interactive GUI.
 
@@ -209,5 +300,6 @@ Open index.html in a browser for the interactive GUI.
   sandscript pattern lsystem --preset gosper --depth 4 -o gosper.gcode
   sandscript pattern flowfield --seed 42 --particles 200 --steps 300 -o flow.gcode
   sandscript from-svg dog.svg -o dog.gcode
-"#);
+"#
+    );
 }
