@@ -31,6 +31,11 @@ interface OctoprintState {
    * connectedIntent + credentials are present, reconnects once. */
   connected: boolean;
   serverName: string;
+  /** Persisted (see partialize below) — otherwise a reload while an item
+   * is queued behind a busy printer silently drops it, with no warning
+   * that it happened. Each item carries its full G-code string, so an
+   * enormous queue could theoretically strain localStorage's ~5-10MB
+   * per-origin limit, but a handful of patterns is nowhere close. */
   printQueue: QueueItem[];
   log: LogEntry[];
   /** filename → gcode text, cached so the mini progress canvas doesn't
@@ -100,6 +105,7 @@ export const useOctoprintStore = create<OctoprintState>()(
         baseUrl: s.baseUrl,
         apiKey: s.apiKey,
         connectedIntent: s.connectedIntent,
+        printQueue: s.printQueue,
       }),
     },
   ),
