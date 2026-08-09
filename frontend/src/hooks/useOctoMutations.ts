@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 import { fetchVersion, sendCommand, connectSerial as connectSerialApi, uploadFile } from '../lib/octoprint/client';
 import { useOctoprintStore, type QueueItem } from '../store/octoprintStore';
-import { useTableStore } from '../store/tableStore';
-import { withBoundaryLeadIn } from '../lib/geometry/boundaryLeadIn';
 
 export function useOctoMutations() {
   const connect = useCallback(async () => {
@@ -48,21 +46,11 @@ export function useOctoMutations() {
     }
   }, []);
 
-  // Uploads and optionally starts printing `gcode`, routing the initial
-  // approach via the table boundary rather than cutting straight across the
-  // table from wherever the ball last ended up.
   const uploadAndPrint = useCallback(async (name: string, gcode: string, startPrint: boolean) => {
     const s = useOctoprintStore.getState();
-    const table = useTableStore.getState().table;
-    let finalGcode = gcode;
-    if (startPrint) {
-      const { gcode: withLeadIn, newEndPoint } = withBoundaryLeadIn(gcode, name, table, s.lastPrintEndPoint);
-      finalGcode = withLeadIn;
-      s.setLastPrintEndPoint(newEndPoint);
-    }
     try {
-      await uploadFile({ baseUrl: s.baseUrl, apiKey: s.apiKey }, name, finalGcode, startPrint);
-      s.cacheGcode(name, finalGcode);
+      await uploadFile({ baseUrl: s.baseUrl, apiKey: s.apiKey }, name, gcode, startPrint);
+      s.cacheGcode(name, gcode);
       s.addLog(startPrint ? `▶ Printing: ${name}` : `✓ Uploaded: ${name}`, '#4a8');
       return true;
     } catch (e) {

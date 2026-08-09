@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Pt } from '../lib/types';
 import type { OctoStatusView } from '../lib/octoprint/types';
 
 export interface QueueItem {
@@ -34,11 +33,6 @@ interface OctoprintState {
   serverName: string;
   printQueue: QueueItem[];
   log: LogEntry[];
-  /** Final point of the last pattern actually sent to print — the only
-   * thing that tells us where the ball ended up, so the next print can
-   * route its lead-in from there instead of cutting straight across
-   * whatever's already on the table. See lib/geometry/boundaryLeadIn. */
-  lastPrintEndPoint: Pt | null;
   /** filename → gcode text, cached so the mini progress canvas doesn't
    * re-fetch on every poll tick. Not persisted — fine to lose on reload. */
   uploadedGcode: Record<string, string>;
@@ -61,7 +55,6 @@ interface OctoprintState {
   shiftQueue: () => QueueItem | undefined;
   addLog: (text: string, color?: string, raw?: boolean) => void;
   clearLog: () => void;
-  setLastPrintEndPoint: (pt: Pt | null) => void;
   cacheGcode: (name: string, gcode: string) => void;
 }
 
@@ -75,7 +68,6 @@ export const useOctoprintStore = create<OctoprintState>()(
       serverName: '',
       printQueue: [],
       log: [],
-      lastPrintEndPoint: null,
       uploadedGcode: {},
       liveStatus: null,
 
@@ -100,7 +92,6 @@ export const useOctoprintStore = create<OctoprintState>()(
           ),
         })),
       clearLog: () => set({ log: [] }),
-      setLastPrintEndPoint: (pt) => set({ lastPrintEndPoint: pt }),
       cacheGcode: (name, gcode) => set((s) => ({ uploadedGcode: { ...s.uploadedGcode, [name]: gcode } })),
     }),
     {
@@ -109,7 +100,6 @@ export const useOctoprintStore = create<OctoprintState>()(
         baseUrl: s.baseUrl,
         apiKey: s.apiKey,
         connectedIntent: s.connectedIntent,
-        lastPrintEndPoint: s.lastPrintEndPoint,
       }),
     },
   ),
