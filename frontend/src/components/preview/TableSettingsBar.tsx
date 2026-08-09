@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { useTableStore } from '../../store/tableStore';
+import { useDraftValue } from '../../hooks/useDraftValue';
 
 const inputCls =
   'w-14 rounded border border-input-border bg-input px-1.5 py-0.5 text-right text-[0.72rem] text-ink focus:border-accent-border focus:outline-none';
@@ -15,15 +15,10 @@ export function TableSettingsBar() {
 
   // Local draft values so typing doesn't trigger regeneration on every
   // keystroke — committed on blur, matching the old app's 'change' semantics.
-  const [wDraft, setWDraft] = useState(String(width));
-  const [hDraft, setHDraft] = useState(String(height));
-  const [grooveDraft, setGrooveDraft] = useState(String(grooveWidthMM));
-  const [cornerDraft, setCornerDraft] = useState(String(cornerRadiusMM));
-
-  useEffect(() => setWDraft(String(width)), [width]);
-  useEffect(() => setHDraft(String(height)), [height]);
-  useEffect(() => setGrooveDraft(String(grooveWidthMM)), [grooveWidthMM]);
-  useEffect(() => setCornerDraft(String(cornerRadiusMM)), [cornerRadiusMM]);
+  const [wDraft, setWDraft] = useDraftValue(String(width));
+  const [hDraft, setHDraft] = useDraftValue(String(height));
+  const [grooveDraft, setGrooveDraft] = useDraftValue(String(grooveWidthMM));
+  const [cornerDraft, setCornerDraft] = useDraftValue(String(cornerRadiusMM));
 
   return (
     <div className="flex flex-col gap-1 text-[0.72rem] text-ink-muted">

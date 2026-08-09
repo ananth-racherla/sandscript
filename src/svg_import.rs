@@ -1,7 +1,7 @@
+use crate::gcode::Pt;
 use anyhow::{bail, Context, Result};
 use kurbo::{BezPath, ParamCurve, PathEl, Shape};
 use roxmltree::Document;
-use crate::gcode::Pt;
 
 /// Parse an SVG file and return all paths sampled into polylines.
 pub fn parse_svg(svg_text: &str, samples_per_unit: f64) -> Result<Vec<Vec<Pt>>> {
@@ -124,7 +124,7 @@ pub fn stitch(mut segments: Vec<Vec<Pt>>) -> Vec<Pt> {
 
         for (i, seg) in segments.iter().enumerate() {
             let d_start = current_end.dist2(seg.first().unwrap());
-            let d_end   = current_end.dist2(seg.last().unwrap());
+            let d_end = current_end.dist2(seg.last().unwrap());
             if d_start < best_dist {
                 best_dist = d_start;
                 best_idx = i;

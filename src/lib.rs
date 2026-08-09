@@ -14,18 +14,43 @@ pub fn gen_rose_gcode(n: u32, d: u32, steps: usize, scale: f64, feedrate: u32) -
     write_gcode("rose", &pts, feedrate)
 }
 
-pub fn gen_lissajous_gcode(a: u32, b: u32, delta: f64, steps: usize, scale: f64, feedrate: u32) -> Result<String> {
+pub fn gen_lissajous_gcode(
+    a: u32,
+    b: u32,
+    delta: f64,
+    steps: usize,
+    scale: f64,
+    feedrate: u32,
+) -> Result<String> {
     let pts = normalize_to_table(&patterns::lissajous::lissajous(a, b, delta, steps), scale);
     write_gcode("lissajous", &pts, feedrate)
 }
 
-pub fn gen_spirograph_gcode(big_r: f64, small_r: f64, pen_d: f64, epi: bool, steps: usize, scale: f64, feedrate: u32) -> Result<String> {
-    let raw = if epi { epitrochoid(big_r, small_r, pen_d, steps) } else { hypotrochoid(big_r, small_r, pen_d, steps) };
+pub fn gen_spirograph_gcode(
+    big_r: f64,
+    small_r: f64,
+    pen_d: f64,
+    epi: bool,
+    steps: usize,
+    scale: f64,
+    feedrate: u32,
+) -> Result<String> {
+    let raw = if epi {
+        epitrochoid(big_r, small_r, pen_d, steps)
+    } else {
+        hypotrochoid(big_r, small_r, pen_d, steps)
+    };
     let pts = normalize_to_table(&raw, scale);
     write_gcode("spirograph", &pts, feedrate)
 }
 
-pub fn gen_spiral_gcode(turns: f64, gap: f64, steps: usize, scale: f64, feedrate: u32) -> Result<String> {
+pub fn gen_spiral_gcode(
+    turns: f64,
+    gap: f64,
+    steps: usize,
+    scale: f64,
+    feedrate: u32,
+) -> Result<String> {
     let raw = patterns::spiral::archimedean(turns, gap, steps);
     let pts = fit_to_table(&raw, (1.0 - scale) / 2.0);
     write_gcode("spiral", &pts, feedrate)
@@ -33,13 +58,13 @@ pub fn gen_spiral_gcode(turns: f64, gap: f64, steps: usize, scale: f64, feedrate
 
 pub fn gen_lsystem_gcode(preset: &str, depth: u32, scale: f64, feedrate: u32) -> Result<String> {
     let raw = match preset {
-        "hilbert"    => patterns::lsystem::hilbert(depth),
-        "gosper"     => patterns::lsystem::gosper(depth),
+        "hilbert" => patterns::lsystem::hilbert(depth),
+        "gosper" => patterns::lsystem::gosper(depth),
         "sierpinski" => patterns::lsystem::sierpinski(depth),
-        "dragon"     => patterns::lsystem::dragon(depth),
-        "koch"       => patterns::lsystem::koch(depth),
-        "plant"      => patterns::lsystem::plant(depth),
-        other        => anyhow::bail!("Unknown L-system preset: {other}"),
+        "dragon" => patterns::lsystem::dragon(depth),
+        "koch" => patterns::lsystem::koch(depth),
+        "plant" => patterns::lsystem::plant(depth),
+        other => anyhow::bail!("Unknown L-system preset: {other}"),
     };
     // Hilbert is used as a grid-fill eraser — stretch to cover the whole
     // rectangular table rather than preserving its natural square aspect.
@@ -52,16 +77,49 @@ pub fn gen_lsystem_gcode(preset: &str, depth: u32, scale: f64, feedrate: u32) ->
 }
 
 /// Logarithmic spiral (single arm), origin-centered so `sym` copies converge cleanly.
-pub fn gen_logarithmic_gcode(b: f64, turns: f64, steps: usize, scale: f64, feedrate: u32) -> Result<String> {
+pub fn gen_logarithmic_gcode(
+    b: f64,
+    turns: f64,
+    steps: usize,
+    scale: f64,
+    feedrate: u32,
+) -> Result<String> {
     let raw = patterns::spiral::logarithmic(1.0, b, turns, steps);
-    let max_r = raw.iter().map(|p| (p.x * p.x + p.y * p.y).sqrt()).fold(0.0_f64, f64::max).max(1e-9);
-    let norm: Vec<gcode::Pt> = raw.iter().map(|p| gcode::Pt::new(p.x / max_r, p.y / max_r)).collect();
+    let max_r = raw
+        .iter()
+        .map(|p| (p.x * p.x + p.y * p.y).sqrt())
+        .fold(0.0_f64, f64::max)
+        .max(1e-9);
+    let norm: Vec<gcode::Pt> = raw
+        .iter()
+        .map(|p| gcode::Pt::new(p.x / max_r, p.y / max_r))
+        .collect();
     let pts = normalize_to_table(&norm, scale);
     write_gcode("logarithmic", &pts, feedrate)
 }
 
-pub fn gen_flowfield_gcode(seed: u32, particles: usize, particle_steps: usize, step_size: f64, noise_scale: f64, strength: f64, scale: f64, feedrate: u32) -> Result<String> {
-    let raw = patterns::flowfield::flow_field(seed, particles, particle_steps, step_size, noise_scale, strength);
+// One parameter per flow-field knob (seed, particle count/length, noise
+// shape, output scale/feedrate) — a params struct isn't worth it for the
+// single call site in wasm_api.rs.
+#[allow(clippy::too_many_arguments)]
+pub fn gen_flowfield_gcode(
+    seed: u32,
+    particles: usize,
+    particle_steps: usize,
+    step_size: f64,
+    noise_scale: f64,
+    strength: f64,
+    scale: f64,
+    feedrate: u32,
+) -> Result<String> {
+    let raw = patterns::flowfield::flow_field(
+        seed,
+        particles,
+        particle_steps,
+        step_size,
+        noise_scale,
+        strength,
+    );
     let pts = normalize_to_table(&raw, scale);
     write_gcode("flowfield", &pts, feedrate)
 }
@@ -96,13 +154,21 @@ pub fn gen_raster_gcode(rows: usize, margin: f64, feedrate: u32) -> Result<Strin
 pub fn optimize_gcode_str(gcode: &str, epsilon_mm: f64) -> Result<String> {
     let feedrate = gcode
         .lines()
-        .find_map(|l| l.trim().strip_prefix("G1F").and_then(|v| v.parse::<u32>().ok()))
+        .find_map(|l| {
+            l.trim()
+                .strip_prefix("G1F")
+                .and_then(|v| v.parse::<u32>().ok())
+        })
         .unwrap_or(2000);
     let pts = gcode::parse_gcode_pts(gcode);
     if pts.is_empty() {
         anyhow::bail!("No G1 moves found in G-code");
     }
     let pts = gcode::deduplicate(&pts, 0.1);
-    let pts = if epsilon_mm > 0.0 { gcode::douglas_peucker(&pts, epsilon_mm) } else { pts };
+    let pts = if epsilon_mm > 0.0 {
+        gcode::douglas_peucker(&pts, epsilon_mm)
+    } else {
+        pts
+    };
     write_gcode("optimized", &pts, feedrate)
 }

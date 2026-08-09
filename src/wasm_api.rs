@@ -30,7 +30,13 @@ pub fn gen_lissajous(a: u32, b: u32, delta: f64, scale: f64) -> Result<String, J
 
 /// Spirograph.  epi=false → hypotrochoid (classic), epi=true → epitrochoid.
 #[wasm_bindgen]
-pub fn gen_spirograph(big_r: f64, small_r: f64, pen_d: f64, epi: bool, scale: f64) -> Result<String, JsValue> {
+pub fn gen_spirograph(
+    big_r: f64,
+    small_r: f64,
+    pen_d: f64,
+    epi: bool,
+    scale: f64,
+) -> Result<String, JsValue> {
     crate::gen_spirograph_gcode(big_r, small_r, pen_d, epi, 20_000, scale, 2000).map_err(e)
 }
 
@@ -54,8 +60,25 @@ pub fn gen_logarithmic(b: f64, turns: f64, scale: f64) -> Result<String, JsValue
 
 /// Perlin noise flow field.
 #[wasm_bindgen]
-pub fn gen_flowfield(seed: u32, particles: usize, particle_steps: usize, noise_scale: f64, strength: f64, scale: f64) -> Result<String, JsValue> {
-    crate::gen_flowfield_gcode(seed, particles, particle_steps, 0.01, noise_scale, strength, scale, 2000).map_err(e)
+pub fn gen_flowfield(
+    seed: u32,
+    particles: usize,
+    particle_steps: usize,
+    noise_scale: f64,
+    strength: f64,
+    scale: f64,
+) -> Result<String, JsValue> {
+    crate::gen_flowfield_gcode(
+        seed,
+        particles,
+        particle_steps,
+        0.01,
+        noise_scale,
+        strength,
+        scale,
+        2000,
+    )
+    .map_err(e)
 }
 
 /// Convert SVG text to G-code.

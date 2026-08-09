@@ -31,7 +31,7 @@ pub fn logarithmic(a: f64, b: f64, turns: f64, steps: usize) -> Vec<Pt> {
 /// Generates points directly in table coordinates — do NOT pass through normalize_to_table.
 /// `rows` = number of horizontal passes; `margin_frac` = border fraction (0.0–0.1).
 pub fn raster(rows: usize, margin_frac: f64) -> Vec<Pt> {
-    use crate::gcode::{table_x_min, table_x_max, table_y_min, table_y_max, table_w, table_h};
+    use crate::gcode::{table_h, table_w, table_x_max, table_x_min, table_y_max, table_y_min};
     let xlo = table_x_min() + table_w() * margin_frac;
     let xhi = table_x_max() - table_w() * margin_frac;
     let ylo = table_y_min() + table_h() * margin_frac;

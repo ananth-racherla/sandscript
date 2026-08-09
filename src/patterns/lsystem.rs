@@ -18,7 +18,11 @@ struct Turtle {
 impl Turtle {
     fn new(x: f64, y: f64, angle_deg: f64, step: f64, angle_delta_deg: f64) -> Self {
         Self {
-            state: TurtleState { x, y, angle: angle_deg.to_radians() },
+            state: TurtleState {
+                x,
+                y,
+                angle: angle_deg.to_radians(),
+            },
             stack: vec![],
             pts: vec![Pt::new(x, y)],
             step,
@@ -32,9 +36,15 @@ impl Turtle {
         self.pts.push(Pt::new(self.state.x, self.state.y));
     }
 
-    fn turn_left(&mut self)  { self.state.angle += self.angle_delta; }
-    fn turn_right(&mut self) { self.state.angle -= self.angle_delta; }
-    fn push(&mut self) { self.stack.push(self.state.clone()); }
+    fn turn_left(&mut self) {
+        self.state.angle += self.angle_delta;
+    }
+    fn turn_right(&mut self) {
+        self.state.angle -= self.angle_delta;
+    }
+    fn push(&mut self) {
+        self.stack.push(self.state.clone());
+    }
     fn pop(&mut self) {
         if let Some(s) = self.stack.pop() {
             self.state = s;
@@ -49,7 +59,8 @@ fn expand(axiom: &str, rules: &[(&str, &str)], depth: u32) -> String {
         let mut next = String::with_capacity(s.len() * 4);
         for ch in s.chars() {
             let ch_str = &ch.to_string();
-            let replacement = rules.iter()
+            let replacement = rules
+                .iter()
                 .find(|(from, _)| *from == ch_str)
                 .map(|(_, to)| *to)
                 .unwrap_or(ch_str.as_str());
@@ -84,10 +95,7 @@ pub fn hilbert(depth: u32) -> Vec<Pt> {
 
 /// Gosper curve (fills hexagonal area)
 pub fn gosper(depth: u32) -> Vec<Pt> {
-    let rules = &[
-        ("A", "A-B--B+A++AA+B-"),
-        ("B", "+A-BB--B-A++A+B"),
-    ];
+    let rules = &[("A", "A-B--B+A++AA+B-"), ("B", "+A-BB--B-A++A+B")];
     let seq = expand("A", rules, depth);
     draw(&seq, 60.0, 1.0)
 }
@@ -115,10 +123,7 @@ pub fn koch(depth: u32) -> Vec<Pt> {
 
 /// Plant (branching, bracket L-system)
 pub fn plant(depth: u32) -> Vec<Pt> {
-    let rules = &[
-        ("X", "F+[[X]-X]-F[-FX]+X"),
-        ("F", "FF"),
-    ];
+    let rules = &[("X", "F+[[X]-X]-F[-FX]+X"), ("F", "FF")];
     let seq = expand("X", rules, depth);
     let mut t = Turtle::new(0.0, 0.0, 90.0, 1.0, 25.0);
     for ch in seq.chars() {
