@@ -15,9 +15,18 @@ export function MiniProgressCanvas({ status }: { status: OctoStatusView }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const miniH = Math.round(MINI_W * (table.h / table.w));
-    canvas.width = MINI_W;
-    canvas.height = miniH;
+    // Buffer at native device resolution so it isn't upscaled (blurry on
+    // any HiDPi/Retina display) to fill its CSS size — ctx.scale keeps
+    // every drawing call below in the same MINI_W/miniH logical space, so
+    // none of that math needs to change. dpr cancels out of the
+    // width:height ratio, so the CSS-driven aspect ratio (no explicit
+    // height set — canvas is w-full with height following the intrinsic
+    // ratio) still adapts correctly if the container resizes.
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = MINI_W * dpr;
+    canvas.height = miniH * dpr;
     const ctx = canvas.getContext('2d')!;
+    ctx.scale(dpr, dpr);
     ctx.fillStyle = '#2a1d0e';
     ctx.fillRect(0, 0, MINI_W, miniH);
 
