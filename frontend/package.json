@@ -5,7 +5,7 @@
   "description": "Sandscript web UI",
   "type": "module",
   "scripts": {
-    "wasm:build": "cd .. && wasm-pack build --target web --out-dir frontend/src/wasm",
+    "wasm:build": "cd .. && wasm-pack build --target web --out-dir frontend/src/wasm && ./scripts/hash-rust-source.sh > frontend/src/wasm-source.sha256",
     "predev": "npm run wasm:build",
     "dev": "vite",
     "prebuild": "npm run wasm:build",
