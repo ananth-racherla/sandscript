@@ -34,7 +34,7 @@ function RootLayout() {
       {/* ── PANEL — tabs + Gallery/Custom/Print content, below the canvas
            on mobile (what you scroll to for interacting), on the left on
            desktop via md:order-1. ── */}
-      <div className="order-2 flex w-full flex-col border-t border-panel-border bg-panel md:order-1 md:w-[300px] md:min-w-[300px] md:flex-1 md:flex-col md:overflow-hidden md:border-r md:border-t-0">
+      <div className="order-2 flex w-full flex-col border-t border-panel-border bg-panel md:order-1 md:w-[300px] md:min-w-[300px] md:flex-none md:flex-col md:overflow-hidden md:border-r md:border-t-0">
         <div className="flex items-stretch border-b border-panel-border">
           {TABS.map((tab) => (
             <Link
