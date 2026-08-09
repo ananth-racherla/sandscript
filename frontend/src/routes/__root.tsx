@@ -11,10 +11,30 @@ const TABS = [
 
 function RootLayout() {
   return (
-    <div className="flex h-screen overflow-hidden">
+    // Mobile (below md): a single column that scrolls naturally as a whole
+    // page — the canvas gets a fixed vh-based height since it can no longer
+    // lean on flex-1-of-h-screen, and the panel below it (Gallery/Custom/
+    // Print) just renders at its natural content height instead of
+    // scrolling in its own clipped region; nesting an independently
+    // scrolling list inside a scrolling page fights touch scrolling.
+    // Desktop (md and up): unchanged fixed-viewport two-pane layout, each
+    // pane scrolling independently within h-screen.
+    <div className="flex min-h-screen flex-col overflow-y-auto md:h-screen md:flex-row md:overflow-hidden">
       <OctoPrintController />
-      {/* ── LEFT PANEL ── */}
-      <div className="flex w-[300px] min-w-[300px] flex-col overflow-hidden border-r border-panel-border bg-panel">
+
+      {/* ── VIEWER — canvas first on mobile (the thing you glance at);
+           pushed to the right on desktop via md:order-2. Instantiated
+           once, sibling of Outlet below, so it never unmounts on tab
+           navigation. ── */}
+      <div className="order-1 flex h-[52vh] min-h-[320px] flex-none flex-col gap-2 p-2.5 md:order-2 md:h-auto md:min-h-0 md:min-w-0 md:flex-1">
+        <TableSettingsBar />
+        <PreviewCanvas />
+      </div>
+
+      {/* ── PANEL — tabs + Gallery/Custom/Print content, below the canvas
+           on mobile (what you scroll to for interacting), on the left on
+           desktop via md:order-1. ── */}
+      <div className="order-2 flex w-full flex-col border-t border-panel-border bg-panel md:order-1 md:w-[300px] md:min-w-[300px] md:flex-1 md:flex-col md:overflow-hidden md:border-r md:border-t-0">
         <div className="flex items-stretch border-b border-panel-border">
           {TABS.map((tab) => (
             <Link
@@ -39,16 +59,9 @@ function RootLayout() {
             </svg>
           </a>
         </div>
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-col md:flex-1 md:overflow-hidden">
           <Outlet />
         </div>
-      </div>
-
-      {/* ── RIGHT VIEWER — instantiated once, sibling of Outlet above, so it
-           never unmounts on tab navigation ── */}
-      <div className="flex min-w-0 flex-1 flex-col gap-2 p-2.5">
-        <TableSettingsBar />
-        <PreviewCanvas />
       </div>
     </div>
   );
