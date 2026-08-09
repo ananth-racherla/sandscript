@@ -335,45 +335,243 @@ fn sample_quad(seg: &kurbo::QuadBez, out: &mut Vec<Pt>, spu: f64) {
     }
 }
 
-/// Stitch disconnected path segments into one continuous path using
-/// greedy nearest-neighbor (each segment can be reversed).
-pub fn stitch(mut segments: Vec<Vec<Pt>>) -> Vec<Pt> {
+/// Stitch disconnected path segments into one continuous path: build an
+/// initial nearest-neighbor tour, then locally improve it with 2-opt.
+///
+/// Nearest-neighbor alone visits whichever segment is closest *right now*
+/// with no lookahead — so a small detail segment that would have been a
+/// short hop from partway through a big loop can end up needing a long
+/// standalone jump once the loop's already finished somewhere else
+/// entirely (the loop is drawn as one atomic unit; NN can't pause midway
+/// through it to grab something nearby). 2-opt fixes the part of that
+/// which reordering can fix — which segment ends up adjacent to which —
+/// by repeatedly checking whether reversing a span of the tour shortens
+/// total travel, same technique pen-plotter path optimizers use. It
+/// can't split a segment to insert a mid-draw detour (nothing can, short
+/// of ordering the SVG's own path data differently), so an isolated
+/// detail can still cost one unavoidable jump — just the *cheapest*
+/// available one instead of whatever NN happened to end on.
+///
+/// Segment counts in real SVGs are small (tens, not thousands), so both
+/// passes are effectively instant.
+pub fn stitch(segments: Vec<Vec<Pt>>) -> Vec<Pt> {
     if segments.is_empty() {
         return vec![];
     }
-    let mut result: Vec<Pt> = Vec::new();
-    let first = segments.remove(0);
-    let mut current_end = *first.last().unwrap();
-    result.extend(first);
+    if segments.len() == 1 {
+        return segments.into_iter().next().unwrap();
+    }
 
-    while !segments.is_empty() {
+    let tour = nearest_neighbor_tour(&segments);
+    let tour = two_opt(&segments, tour);
+    let cuts = recut_closed_loops(&segments, &tour);
+
+    let mut result = Vec::new();
+    for (pos, entry) in tour.iter().enumerate() {
+        let seg = &segments[entry.idx];
+        if is_closed_loop(seg) {
+            result.extend(rotate_closed_loop(seg, cuts[pos]));
+        } else if entry.reversed {
+            result.extend(seg.iter().rev().copied());
+        } else {
+            result.extend(seg.iter().copied());
+        }
+    }
+    result
+}
+
+const CLOSED_LOOP_EPS: f64 = 1e-6;
+
+/// True if this segment's own path data closed back on itself (an SVG
+/// path ending in `Z`) — its start and end are the same point.
+fn is_closed_loop(seg: &[Pt]) -> bool {
+    seg.len() > 2 && seg[0].dist2(seg.last().unwrap()) < CLOSED_LOOP_EPS
+}
+
+/// Rotates a closed loop's points to start (and, closing the loop, end)
+/// at index `cut` instead of wherever its SVG path data happened to start.
+fn rotate_closed_loop(seg: &[Pt], cut: usize) -> Vec<Pt> {
+    let unique_len = seg.len() - 1; // seg's last point duplicates seg[0]
+    let cut = cut % unique_len;
+    (0..=unique_len)
+        .map(|i| seg[(cut + i) % unique_len])
+        .collect()
+}
+
+/// The point used to connect the segment at `tour[pos]` to its neighbor —
+/// its currently-chosen cut point if it's a closed loop (entering and
+/// leaving a closed loop happen at the same physical point), otherwise
+/// its ordinary fixed start/end.
+fn tour_anchor(
+    segments: &[Vec<Pt>],
+    tour: &[TourEntry],
+    cuts: &[usize],
+    pos: usize,
+    want_end: bool,
+) -> Pt {
+    let entry = tour[pos];
+    let seg = &segments[entry.idx];
+    if is_closed_loop(seg) {
+        return seg[cuts[pos] % (seg.len() - 1)];
+    }
+    seg_endpoint(segments, entry, want_end)
+}
+
+/// A closed loop only exposes its SVG-authored starting point as a place
+/// to enter/exit by default — but geometrically any point on its boundary
+/// works just as well, and entering/leaving happen at the *same* physical
+/// point either way (the ball has to return to wherever it started to
+/// finish tracing a closed shape). This is the actual fix for a jump that
+/// plain segment reordering (two_opt) can never remove: two_opt only ever
+/// considers a segment's fixed endpoints, so when everything left to
+/// connect is a closed loop, no reordering changes anything (confirmed by
+/// testing against the dolphin SVG directly — two_opt found zero improving
+/// moves once the eye was filtered out, because both remaining segments'
+/// closed-loop paths only exposed one connection point each). Picks,
+/// for each closed loop in the tour, whichever point on its boundary is
+/// cheapest given its *actual* neighbors. A few passes let choices
+/// propagate between adjacent loops, since one loop's chosen cut affects
+/// what's cheapest for its neighbor.
+fn recut_closed_loops(segments: &[Vec<Pt>], tour: &[TourEntry]) -> Vec<usize> {
+    let n = tour.len();
+    let mut cuts = vec![0usize; n];
+    const PASSES: usize = 4;
+    for _ in 0..PASSES {
+        for pos in 0..n {
+            let seg = &segments[tour[pos].idx];
+            if !is_closed_loop(seg) {
+                continue;
+            }
+            let prev = (pos > 0).then(|| tour_anchor(segments, tour, &cuts, pos - 1, true));
+            let next = (pos + 1 < n).then(|| tour_anchor(segments, tour, &cuts, pos + 1, false));
+            let unique_len = seg.len() - 1;
+            let mut best_k = cuts[pos];
+            let mut best_cost = f64::MAX;
+            for (k, p) in seg.iter().take(unique_len).enumerate() {
+                let cost = prev.map_or(0.0, |a| a.dist2(p).sqrt())
+                    + next.map_or(0.0, |b| p.dist2(&b).sqrt());
+                if cost < best_cost {
+                    best_cost = cost;
+                    best_k = k;
+                }
+            }
+            cuts[pos] = best_k;
+        }
+    }
+    cuts
+}
+
+#[derive(Clone, Copy)]
+struct TourEntry {
+    idx: usize,
+    reversed: bool,
+}
+
+fn seg_endpoint(segments: &[Vec<Pt>], entry: TourEntry, end: bool) -> Pt {
+    let seg = &segments[entry.idx];
+    if end != entry.reversed {
+        *seg.last().unwrap()
+    } else {
+        seg[0]
+    }
+}
+
+fn nearest_neighbor_tour(segments: &[Vec<Pt>]) -> Vec<TourEntry> {
+    let n = segments.len();
+    let mut visited = vec![false; n];
+    let mut tour = Vec::with_capacity(n);
+    tour.push(TourEntry {
+        idx: 0,
+        reversed: false,
+    });
+    visited[0] = true;
+    let mut current_end = *segments[0].last().unwrap();
+
+    for _ in 1..n {
         let mut best_idx = 0;
         let mut best_dist = f64::MAX;
-        let mut best_reverse = false;
-
+        let mut best_reversed = false;
         for (i, seg) in segments.iter().enumerate() {
+            if visited[i] {
+                continue;
+            }
             let d_start = current_end.dist2(seg.first().unwrap());
             let d_end = current_end.dist2(seg.last().unwrap());
             if d_start < best_dist {
                 best_dist = d_start;
                 best_idx = i;
-                best_reverse = false;
+                best_reversed = false;
             }
             if d_end < best_dist {
                 best_dist = d_end;
                 best_idx = i;
-                best_reverse = true;
+                best_reversed = true;
             }
         }
-
-        let mut seg = segments.remove(best_idx);
-        if best_reverse {
-            seg.reverse();
-        }
-        current_end = *seg.last().unwrap();
-        result.extend(seg);
+        visited[best_idx] = true;
+        current_end = if best_reversed {
+            segments[best_idx][0]
+        } else {
+            *segments[best_idx].last().unwrap()
+        };
+        tour.push(TourEntry {
+            idx: best_idx,
+            reversed: best_reversed,
+        });
     }
-    result
+    tour
+}
+
+fn tour_cost(segments: &[Vec<Pt>], tour: &[TourEntry]) -> f64 {
+    tour.windows(2)
+        .map(|w| {
+            let a = seg_endpoint(segments, w[0], true);
+            let b = seg_endpoint(segments, w[1], false);
+            a.dist2(&b).sqrt()
+        })
+        .sum()
+}
+
+/// Classic 2-opt adapted for reversible "cities" (each tour entry is a
+/// whole segment that can be traversed in either direction): try reversing
+/// every span [i+1..=j] — which also flips each entry's own orientation,
+/// since walking a reversed span backwards means walking each segment in
+/// it backwards too — and keep the single best-improving move per pass
+/// until none improves, or a pass cap is hit.
+fn two_opt(segments: &[Vec<Pt>], mut tour: Vec<TourEntry>) -> Vec<TourEntry> {
+    let n = tour.len();
+    if n < 3 {
+        return tour;
+    }
+    const MAX_PASSES: usize = 30;
+    for _ in 0..MAX_PASSES {
+        let mut best_cost = tour_cost(segments, &tour);
+        let mut best_move: Option<(usize, usize)> = None;
+        for i in 0..n - 1 {
+            for j in (i + 1)..n {
+                let mut candidate = tour.clone();
+                candidate[i + 1..=j].reverse();
+                for entry in &mut candidate[i + 1..=j] {
+                    entry.reversed = !entry.reversed;
+                }
+                let cost = tour_cost(segments, &candidate);
+                if cost < best_cost - 1e-9 {
+                    best_cost = cost;
+                    best_move = Some((i, j));
+                }
+            }
+        }
+        match best_move {
+            Some((i, j)) => {
+                tour[i + 1..=j].reverse();
+                for entry in &mut tour[i + 1..=j] {
+                    entry.reversed = !entry.reversed;
+                }
+            }
+            None => break,
+        }
+    }
+    tour
 }
 
 #[cfg(test)]
@@ -543,5 +741,48 @@ mod tests {
         assert!(err
             .to_string()
             .contains("smaller than the minimum feature size"));
+    }
+
+    /// A square outline with `steps` points per edge, so edge-to-edge
+    /// spacing is small enough that a real inter-segment jump stands out
+    /// as the largest gap rather than getting lost among plain corners.
+    fn dense_square(x0: f64, y0: f64, size: f64, steps: usize) -> Vec<Pt> {
+        let corners = [
+            (x0, y0),
+            (x0 + size, y0),
+            (x0 + size, y0 + size),
+            (x0, y0 + size),
+            (x0, y0),
+        ];
+        let mut out = Vec::new();
+        for w in corners.windows(2) {
+            let (ax, ay) = w[0];
+            let (bx, by) = w[1];
+            for i in 0..steps {
+                let t = i as f64 / steps as f64;
+                out.push(Pt::new(ax + (bx - ax) * t, ay + (by - ay) * t));
+            }
+        }
+        out.push(Pt::new(corners[0].0, corners[0].1));
+        out
+    }
+
+    #[test]
+    fn recuts_closed_loops_to_their_nearest_points() {
+        // A big square loop, densely sampled (~5-unit edge spacing), SVG-
+        // authored to start at its far corner (0,0)...
+        let big = dense_square(0.0, 0.0, 100.0, 20);
+        // ...and a tiny loop tucked right next to big's (100,100) corner,
+        // but SVG-authored to start at ITS far corner instead — naive
+        // stitching (always connecting at each loop's fixed start) would
+        // have to jump the long way around (~150 units); recutting should
+        // find the ~5-unit-apart pair of adjacent corners instead.
+        let small = dense_square(100.0, 105.0, 5.0, 4);
+        let stitched = stitch(vec![big, small]);
+        let max_gap = stitched
+            .windows(2)
+            .map(|w| w[0].dist2(&w[1]).sqrt())
+            .fold(0.0, f64::max);
+        assert!(max_gap < 10.0, "expected a short recut jump, got {max_gap}");
     }
 }
