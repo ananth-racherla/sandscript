@@ -1,0 +1,15 @@
+{
+  "name": "sandscript",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "sandscript_bg.wasm",
+    "sandscript.js",
+    "sandscript.d.ts"
+  ],
+  "main": "sandscript.js",
+  "types": "sandscript.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
