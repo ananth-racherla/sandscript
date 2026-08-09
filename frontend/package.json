@@ -12,7 +12,7 @@
     "build": "tsc -b && vite build",
     "build:deploy": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
