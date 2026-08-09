@@ -1,56 +1,56 @@
 # Sandscript
 
-A pattern generator for a DIY kinetic sand table — the kind with a steel ball
-dragged through sand by a magnet on an X/Y gantry, drawing one continuous line
-that never lifts the pen. This is the tool that designs what the ball draws.
+A pattern generator for the Kinetic Sand Art Coffee Table.  Inspired by https://www.diymachines.co.uk/kinetic-sand-art-coffee-table-self-drawing
 
-## Why this exists
+The goal for this project was to curate some patterns that well with the sandtable. And importantly allow the ability to preview the patterns.
 
-Most sand-table software assumes you're sending a finished G-code file and
-hoping for the best. I wanted something that felt more like a sketchbook:
-pick a shape from a gallery, tweak a few sliders, watch it draw on screen
-before committing a table's worth of sand to it, and send it straight to the
-printer over OctoPrint when it looks right. The preview also tries to be
-honest about the physical process — the ball has a real diameter and real
-momentum, so a razor-thin line on screen that snaps around hairpin corners
-would be lying to you about what the table will actually draw.
+The project also is designed to interact with a local Octoprint server via API. Connecting to local server requires an API key that can be obtained from the octoprint page by navigating to `Settings->API->Global API Key`
+
 
 ## Quick start
 
 ```
-wasm-pack build --target web    # builds pkg/ from src/
-python3 -m http.server 8080     # serve the app
+cd frontend
+npm install
+npm run dev
 ```
 
-Then open `http://localhost:8080`. No other build step, no npm — `index.html`
-is the entire frontend.
+Then open `http://localhost:8080`. The dev server rebuilds the WASM crate automatically before starting (and before `npm run build`, too), so a fresh clone needs no manual `wasm-pack` step.
 
-## What's in it
+## Local development
 
-- **Gallery** — curated presets (flowers, spirograph, fractals, erasers, and
-  a couple of hand-picked animal outlines) grouped by category. Click one and
-  it draws.
-- **Custom** — the same pattern families with every parameter exposed as a
-  slider, for building your own.
-- **Print** — connects to OctoPrint, shows live table/temperature status,
-  queues jobs, and previews what's currently drawing.
-- **Table settings** (top of the preview panel) — actual table dimensions,
-  groove width, and corner rounding, so the on-screen preview matches what
-  the ball really leaves in the sand rather than an idealized thin line.
+**Prerequisites**
+- Rust + the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`)
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/)
+- Node.js + npm
 
-## How it's built
+**Making changes**
+- Pattern generation, G-code writing, SVG import — edit the Rust crate in `src/`, then `npm run dev` (or `npm run wasm:build`) picks up the changes on the next reload.
+- UI, routing, state, OctoPrint client — edit `frontend/src/`. Vite hot-reloads on save.
 
+**Useful commands** (run from `frontend/`)
+```
+npm run dev       # start the dev server (rebuilds the WASM crate first)
+npm run build     # type-check + production build to frontend/dist/
+npm run preview   # serve the production build locally, to sanity-check it
+npx tsc -b        # type-check only, no build
+```
+
+The Rust crate also runs standalone, outside the browser:
+```
+cargo run --release -- pattern rose --n 5 -o rose.gcode
+cargo test
+```
+
+# Key components
 - `src/` — a Rust crate that generates the actual patterns (math curves,
   L-system fractals, SVG import, table-fitting math), compiled to WASM via
   `wasm-bindgen` and also usable as a native CLI (`cargo run --release --
   pattern rose --n 5 -o rose.gcode`).
-- `index.html` — the whole frontend: canvas preview, gallery, OctoPrint
-  client. One file, plain JS modules, no framework.
-- `animals/` — a couple of hand-picked G-code files (a labrador, a turtle)
-  used as gallery presets alongside the generated patterns.
+- `frontend/` — the web app: React, TypeScript, Vite, TanStack Router/Query,
+  Zustand, Tailwind CSS. Canvas preview, gallery, schema-driven custom-pattern
+  forms, and the OctoPrint client all live here; see `frontend/src/`.
+- `animals/` — a couple of hand-picked G-code files (a labrador, a turtle),
+  copied into `frontend/public/animals/` and used as gallery presets
+  alongside the generated patterns.
 
-## Table specifics
-
-Default working area is 515×320mm, calibrated to my table, but it's
-adjustable from the preview panel and every generator reads that setting —
-nothing is hardcoded to one physical size.

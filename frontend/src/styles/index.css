@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* Design tokens — ported from the old index.html's dark theme, not a
+   redesign. Keep these as the single source of truth for colors so
+   components use `bg-panel`, `text-accent`, etc. instead of ad-hoc hex. */
+@theme {
+  --color-bg: #111111;
+  --color-panel: #1a1a1a;
+  --color-panel-border: #252525;
+  --color-card: #1f1f1f;
+  --color-card-border: #2a2a2a;
+  --color-card-hover-border: #3a2a18;
+  --color-card-active-border: #c8a06a;
+  --color-card-active-bg: #221a0e;
+  --color-input: #1e1e1e;
+  --color-input-border: #333333;
+  --color-line: #222222;
+  --color-line-faint: #1a1a1a;
+
+  --color-ink: #cccccc;
+  --color-ink-dim: #888888;
+  --color-ink-dimmer: #777777;
+  --color-ink-muted: #555555;
+  --color-ink-faint: #444444;
+
+  --color-accent: #c8a06a;
+  --color-accent-bright: #d4a96a;
+  --color-accent-bg: #2d2010;
+  --color-accent-bg-hover: #3d2e18;
+  --color-accent-border: #5a3a10;
+
+  --color-warn: #e08a30;
+  --color-warn-bg: #3d2410;
+  --color-warn-border: #7a4a10;
+  --color-danger: #cc0000;
+  --color-success: #44aa88;
+
+  --color-canvas-bg: #2a1d0e;
+  --color-canvas-stroke: #d4a96a;
+  --color-canvas-stroke-dim: #3a2a18;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+}
+
+/* Thin dark scrollbars, matching the old app's — applied globally so every
+   scroll container (gallery, custom params, print log/queue) looks
+   consistent instead of falling back to the OS default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-input-border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-input-border);
+  border-radius: 2px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-dim);
+}
+
+@layer components {
+  .ctrl-btn {
+    background: var(--color-input);
+    color: #bbbbbb;
+    border: 1px solid var(--color-input-border);
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.6875rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+  }
+  .ctrl-btn:hover:not(:disabled) {
+    background: #252525;
+  }
+  .ctrl-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
