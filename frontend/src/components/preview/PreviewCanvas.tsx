@@ -2,17 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePatternStore } from '../../store/patternStore';
 import { useTableStore } from '../../store/tableStore';
 import { filletCorners } from '../../lib/geometry/fillet';
+import { cumulativeDistances, indexAtDistance } from '../../lib/geometry/arcLength';
 import type { Pt, TableBounds } from '../../lib/types';
 import { DownloadButton } from './DownloadButton';
 import { SendToPrinterButton } from '../print/SendToPrinterButton';
 
-function sliderToRate(v: number): number {
+function sliderToSpeed(v: number): number {
   return Math.round(Math.exp((v * Math.log(100000)) / 100));
 }
-function fmtRate(r: number): string {
-  if (r >= 10000) return `${Math.round(r / 1000)}k pts/s`;
-  if (r >= 1000) return `${(r / 1000).toFixed(1)}k pts/s`;
-  return `${r} pts/s`;
+function fmtSpeed(mmPerSec: number): string {
+  if (mmPerSec >= 10000) return `${Math.round(mmPerSec / 1000)}k mm/s`;
+  if (mmPerSec >= 1000) return `${(mmPerSec / 1000).toFixed(1)}k mm/s`;
+  return `${mmPerSec} mm/s`;
 }
 
 function t2c(x: number, y: number, canvas: HTMLCanvasElement, table: TableBounds): [number, number] {
@@ -48,13 +49,18 @@ export function PreviewCanvas() {
   // so the ~60fps animation loop never triggers a store-subscriber or
   // component re-render. ──
   //
-  // progressRef is a FRACTION [0,1] OF THE RAW PATTERN (pts), not an index
-  // into renderPts. That's the actual fix for the old app's bug: renderPts'
-  // *length* changes whenever corner-rounding is recomputed, so an index
-  // into it goes stale the instant that happens. A fraction of pts.length
-  // is stable across corner-rounding changes — it only moves when the
-  // pattern itself changes — so "how far along" can never desync from
-  // "how much to draw."
+  // progressRef is a FRACTION [0,1] OF ARC LENGTH ALONG THE RAW PATTERN
+  // (pts), not an index into renderPts and not a fraction of point *count*
+  // either. That's the actual fix for two bugs: (1) the old app's index
+  // desync — renderPts' *length* changes whenever corner-rounding is
+  // recomputed, so an index into it goes stale the instant that happens;
+  // (2) speed varying with local point density — a sparse straight-line
+  // segment (e.g. two points spanning the whole table) used to cover the
+  // same "index fraction" of playback time as a single point-to-point step
+  // in a dense curved region, so the ball visibly warped across long
+  // straight runs. A fraction of physical mm traveled is stable across
+  // corner-rounding changes AND advances at the same real-world speed
+  // regardless of how sparsely a segment happens to be sampled.
   const progressRef = useRef(1); // 1 = fully drawn (matches "just loaded" behavior below)
   const lastDrawnRef = useRef(0); // last renderPts index actually stroked to the canvas
   const runningRef = useRef(false);
@@ -63,7 +69,10 @@ export function PreviewCanvas() {
   const accumulatedRef = useRef(0);
 
   const ptsRef = useRef<Pt[]>(pts);
+  const ptsTotalLengthRef = useRef(0); // total arc length (mm) of the raw pattern — the speed denominator
   const renderPtsRef = useRef<Pt[]>(renderPts);
+  const renderCumDistRef = useRef<number[]>([]); // cumulative mm at each renderPts index, for progress→index lookup
+  const renderTotalLengthRef = useRef(0);
   const tableRef = useRef<TableBounds>(table);
   const grooveRef = useRef(grooveWidthMM);
   const speedRef = useRef(50);
@@ -81,6 +90,7 @@ export function PreviewCanvas() {
 
   useEffect(() => {
     ptsRef.current = pts;
+    ptsTotalLengthRef.current = cumulativeDistances(pts).at(-1) ?? 0;
   }, [pts]);
   useEffect(() => {
     tableRef.current = table;
@@ -110,11 +120,56 @@ export function PreviewCanvas() {
     ball.getContext('2d')!.clearRect(0, 0, ball.width, ball.height);
   }
 
-  function drawBall(pt: Pt | undefined) {
+  /** Where the pen currently is, mid-segment included. Committed indices
+   * (fully passed points) still get their permanent stroke drawn once on
+   * pathCanvas via strokeSegment; this describes only the *current*,
+   * still-in-progress segment — the part between the last committed point
+   * and wherever progress has actually reached along it. Without this, a
+   * segment could only ever be drawn as "not yet reached" or "fully done
+   * in one stroke call", so a long, sparsely-sampled segment (e.g. a
+   * straight line with only its two endpoints) would sit static for many
+   * frames and then snap its entire length in a single frame the instant
+   * progress crossed its far endpoint — exactly the "ball teleports
+   * across the table" bug. Interpolating within the segment makes the pen
+   * (and the line behind it) move continuously at the configured mm/s
+   * regardless of how far apart consecutive sampled points are. */
+  function interpolateAtProgress(): { committedIdx: number; ballPt: Pt | undefined; partialFrom?: Pt; partialTo?: Pt } {
+    const rpts = renderPtsRef.current;
+    const cum = renderCumDistRef.current;
+    if (rpts.length < 2) return { committedIdx: 0, ballPt: rpts[0] };
+    const targetDist = progressRef.current * renderTotalLengthRef.current;
+    const idx = indexAtDistance(cum, targetDist);
+    if (idx >= rpts.length - 1) return { committedIdx: idx, ballPt: rpts[idx] };
+    const segStart = cum[idx];
+    const segEnd = cum[idx + 1];
+    const segFrac = segEnd > segStart ? (targetDist - segStart) / (segEnd - segStart) : 0;
+    const a = rpts[idx];
+    const b = rpts[idx + 1];
+    const ballPt: Pt = { x: a.x + (b.x - a.x) * segFrac, y: a.y + (b.y - a.y) * segFrac };
+    return { committedIdx: idx, ballPt, partialFrom: a, partialTo: ballPt };
+  }
+
+  /** Redraws the ball canvas every frame: the live in-progress segment (so
+   * the line appears to grow smoothly instead of snapping in once its far
+   * endpoint is reached) plus the ball marker on top. pathCanvas beneath
+   * only ever holds fully-committed segments (see strokeSegment callers),
+   * so this layer is what makes mid-segment motion visible. */
+  function drawBallAndPartial(pt: Pt | undefined, partialFrom?: Pt, partialTo?: Pt) {
     const ball = ballCanvasRef.current;
     if (!ball) return;
     const bctx = ball.getContext('2d')!;
     bctx.clearRect(0, 0, ball.width, ball.height);
+    if (partialFrom && partialTo) {
+      const [sx, sy] = t2c(partialFrom.x, partialFrom.y, ball, tableRef.current);
+      const [ex, ey] = t2c(partialTo.x, partialTo.y, ball, tableRef.current);
+      bctx.beginPath();
+      bctx.strokeStyle = '#d4a96a';
+      bctx.lineWidth = grooveStrokePx();
+      bctx.lineCap = 'round';
+      bctx.moveTo(sx, sy);
+      bctx.lineTo(ex, ey);
+      bctx.stroke();
+    }
     if (!showBallRef.current || !pt) return;
     const [bx, by] = t2c(pt.x, pt.y, ball, tableRef.current);
     bctx.beginPath();
@@ -157,11 +212,11 @@ export function PreviewCanvas() {
     clearCanvas();
     const rpts = renderPtsRef.current;
     if (rpts.length < 2) return;
-    const drawUpTo = Math.round(progressRef.current * (rpts.length - 1));
-    if (drawUpTo >= 1) strokeSegment(0, drawUpTo);
-    lastDrawnRef.current = drawUpTo;
+    const { committedIdx, ballPt, partialFrom, partialTo } = interpolateAtProgress();
+    if (committedIdx >= 1) strokeSegment(0, committedIdx);
+    lastDrawnRef.current = committedIdx;
     updateProgressBarDOM(progressRef.current);
-    if (!runningRef.current) drawBall(rpts[drawUpTo]);
+    if (!runningRef.current) drawBallAndPartial(ballPt, partialFrom, partialTo);
   }
 
   function resizeCanvas() {
@@ -201,6 +256,9 @@ export function PreviewCanvas() {
   // whatever progress already is — never reset it.
   useEffect(() => {
     renderPtsRef.current = renderPts;
+    const cumDist = cumulativeDistances(renderPts);
+    renderCumDistRef.current = cumDist;
+    renderTotalLengthRef.current = cumDist.at(-1) ?? 0;
     fullRedrawAtCurrentProgress();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renderPts, grooveWidthMM]);
@@ -217,9 +275,9 @@ export function PreviewCanvas() {
     if (!runningRef.current) return;
     const dt = Math.min(now - lastTimeRef.current, 100);
     lastTimeRef.current = now;
-    const rate = sliderToRate(speedRef.current);
-    const patternLen = Math.max(1, ptsRef.current.length);
-    accumulatedRef.current += (rate / patternLen) * (dt / 1000);
+    const speedMMs = sliderToSpeed(speedRef.current);
+    const totalLen = Math.max(1, ptsTotalLengthRef.current);
+    accumulatedRef.current += (speedMMs / totalLen) * (dt / 1000);
     progressRef.current = Math.min(1, progressRef.current + accumulatedRef.current);
     accumulatedRef.current = 0;
 
@@ -230,13 +288,12 @@ export function PreviewCanvas() {
       ctx.fillRect(0, 0, path.width, path.height);
     }
 
-    const rpts = renderPtsRef.current;
-    const drawUpTo = Math.round(progressRef.current * (rpts.length - 1));
-    if (drawUpTo > lastDrawnRef.current) {
-      strokeSegment(lastDrawnRef.current, drawUpTo);
-      drawBall(rpts[drawUpTo]);
-      lastDrawnRef.current = drawUpTo;
+    const { committedIdx, ballPt, partialFrom, partialTo } = interpolateAtProgress();
+    if (committedIdx > lastDrawnRef.current) {
+      strokeSegment(lastDrawnRef.current, committedIdx);
+      lastDrawnRef.current = committedIdx;
     }
+    drawBallAndPartial(ballPt, partialFrom, partialTo);
     updateProgressBarDOM(progressRef.current);
 
     if (progressRef.current >= 1) {
@@ -267,7 +324,8 @@ export function PreviewCanvas() {
     runningRef.current = false;
     setIsPlaying(false);
     if (animIdRef.current) cancelAnimationFrame(animIdRef.current);
-    drawBall(renderPtsRef.current[lastDrawnRef.current]);
+    const { ballPt, partialFrom, partialTo } = interpolateAtProgress();
+    drawBallAndPartial(ballPt, partialFrom, partialTo);
   }
 
   function resetPlayback() {
@@ -278,7 +336,10 @@ export function PreviewCanvas() {
     lastDrawnRef.current = 0;
     updateProgressBarDOM(0);
     clearCanvas();
-    if (ptsRef.current.length) drawBall(renderPtsRef.current[0]);
+    if (ptsRef.current.length) {
+      const { ballPt } = interpolateAtProgress();
+      drawBallAndPartial(ballPt);
+    }
   }
 
   return (
@@ -316,7 +377,7 @@ export function PreviewCanvas() {
               speedRef.current = v;
             }}
           />
-          <span className="min-w-[70px] text-[0.7rem] text-accent">{fmtRate(sliderToRate(speed))}</span>
+          <span className="min-w-[70px] text-[0.7rem] text-accent">{fmtSpeed(sliderToSpeed(speed))}</span>
         </label>
         <label className="flex items-center gap-1.5 text-[0.72rem] text-ink-muted">
           Trail
@@ -340,7 +401,10 @@ export function PreviewCanvas() {
             onChange={(e) => {
               setShowBallState(e.target.checked);
               showBallRef.current = e.target.checked;
-              if (!runningRef.current) drawBall(renderPtsRef.current[lastDrawnRef.current]);
+              if (!runningRef.current) {
+                const { ballPt, partialFrom, partialTo } = interpolateAtProgress();
+                drawBallAndPartial(ballPt, partialFrom, partialTo);
+              }
             }}
           />
           Ball
