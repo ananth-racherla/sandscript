@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>WebGPU sand prototype</title>
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 14px system-ui, sans-serif; }
+  #wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; }
+  canvas { border: 1px solid #444; image-rendering: pixelate; }
+  #status { min-height: 1.2em; }
+  #status.err { color: #f66; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="status">loading…</div>
+  <canvas id="c" width="1024" height="640"></canvas>
+  <div>Ball follows the mouse over the canvas. This is a feasibility spike, not the real app.</div>
+</div>
+<script type="module">
+  import init, { init_sim } from './pkg/webgpu_sand_proto.js';
+
+  const statusEl = document.getElementById('status');
+  const canvas = document.getElementById('c');
+
+  function setStatus(msg, isErr = false) {
+    statusEl.textContent = msg;
+    statusEl.className = isErr ? 'err' : '';
+  }
+
+  async function main() {
+    if (!('gpu' in navigator)) {
+      setStatus('WebGPU is not available in this browser (navigator.gpu is undefined).', true);
+      return;
+    }
+    setStatus('loading wasm…');
+    await init();
+    setStatus('requesting GPU adapter/device…');
+    const sim = await init_sim(canvas);
+    setStatus('running');
+
+    let ballX = 0.5, ballY = 0.5;
+    let autoPath = true;
+    canvas.addEventListener('mousemove', (e) => {
+      autoPath = false;
+      const r = canvas.getBoundingClientRect();
+      ballX = (e.clientX - r.left) / r.width;
+      ballY = (e.clientY - r.top) / r.height;
+    });
+
+    let t = 0;
+    function frame() {
+      if (autoPath) {
+        t += 0.01;
+        ballX = 0.5 + 0.35 * Math.cos(t);
+        ballY = 0.5 + 0.28 * Math.sin(t * 1.7);
+      }
+      sim.update(ballX, ballY);
+      sim.render();
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  main().catch((e) => {
+    console.error(e);
+    setStatus('Error: ' + e, true);
+  });
+</script>
+</body>
+</html>

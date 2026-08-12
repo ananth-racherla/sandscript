@@ -1,0 +1,22 @@
+[package]
+name = "webgpu-sand-proto"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+wgpu = { version = "30.0.0", default-features = false, features = ["web", "webgpu", "wgsl", "std"] }
+bytemuck = { version = "1.25.2", features = ["derive"] }
+wasm-bindgen-futures = "0.4.77"
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["HtmlCanvasElement"]
+
+[profile.release]
+opt-level = "s"
