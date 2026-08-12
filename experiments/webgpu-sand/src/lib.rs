@@ -376,7 +376,14 @@ impl SandSim {
             ball_y: ball_y * GRID_H as f32,
             dig_radius: 6.0,
             dig_strength: 0.15,
-            relax_rate: 0.06,
+            // At 0.06 (the original value) the groove decayed to ~2.5% of
+            // its depth within one second at 60fps -- visibly "fading" as
+            // reported, nothing like how long a real sand table's drawn
+            // trail persists. 0.0015 decays much more gradually (~91% of
+            // depth still remains after 1s, ~41% after 10s), reading as a
+            // trail that persists and only slowly settles, not one that
+            // vanishes shortly after the ball passes.
+            relax_rate: 0.0015,
             _pad: 0.0,
         };
         self.queue

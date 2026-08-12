@@ -121,27 +121,55 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let hr = sample_height(in.uv + vec2<f32>(texel.x, 0.0));
     let hu = sample_height(in.uv - vec2<f32>(0.0, texel.y));
     let hd = sample_height(in.uv + vec2<f32>(0.0, texel.y));
+    let h = sample_height(in.uv);
 
-    // Surface normal from finite differences of the heightmap.
+    // Directional (Lambertian) shading alone is fundamentally ambiguous for
+    // a smooth symmetric dip -- the exact same shading pattern reads as
+    // either a groove or a raised ridge depending on which light direction
+    // the viewer's brain assumes (the well-known "crater illusion"). That's
+    // very likely why the groove still looked "out-dented" after only
+    // fixing the color-mix sign: the directional cue was doing most of the
+    // visual work and is inherently flippable.
+    //
+    // So depth here is carried primarily by two direction-*independent*
+    // cues that can't be misread regardless of assumed lighting: (1) direct
+    // darkening proportional to depth, and (2) slope-magnitude ambient
+    // occlusion that darkens both edges of the groove equally. Directional
+    // shading is kept, but as a minor accent on top, not the primary cue.
     let normal = normalize(vec3<f32>(hl - hr, hu - hd, 2.0));
-    let light_dir = normalize(vec3<f32>(0.5, 0.7, 0.6));
+    let light_dir = normalize(vec3<f32>(0.4, 0.55, 0.85));
     let diffuse = max(dot(normal, light_dir), 0.0);
 
-    // Warm sand base color, darkened inside grooves (negative height) so
-    // dug lines read as depressions, plus a tight specular term so grains
-    // along groove edges catch a highlight like real raked sand. h is <=0
-    // in a groove and 0 on flat sand, so the mix factor must *increase*
-    // with h (a positive coefficient) to go dark as h goes negative --
-    // the previous negative coefficient did the opposite, making dug
-    // grooves render *lighter* than the surrounding flat sand (the
-    // "puff of smoke" bug).
-    let h = sample_height(in.uv);
-    let base = mix(vec3<f32>(0.30, 0.22, 0.12), vec3<f32>(0.62, 0.50, 0.30), clamp(h * 0.6 + 0.5, 0.0, 1.0));
-    let half_dir = normalize(light_dir + vec3<f32>(0.0, 0.0, 1.0));
-    let spec = pow(max(dot(normal, half_dir), 0.0), 24.0);
+    let sand_color = vec3<f32>(0.58, 0.46, 0.27);
+    let groove_color = vec3<f32>(0.10, 0.07, 0.04);
+    let depth_t = clamp(-h / 0.3, 0.0, 1.0); // 0 = flat sand, 1 = max dig depth
+    var base = mix(sand_color, groove_color, depth_t);
 
-    var color = base * (0.35 + 0.65 * diffuse) + vec3<f32>(1.0, 0.95, 0.8) * spec * 0.5;
+    let slope = length(vec2<f32>(hl - hr, hu - hd));
+    let ao = 1.0 - clamp(slope * 2.2, 0.0, 0.55);
+    base *= ao;
+
+    var color = base * (0.72 + 0.28 * diffuse);
+
+    // Per-grain sparkle: a sparse scatter of small bright flecks (each grain
+    // cell gets its own randomly-tilted micro-normal, and only ~10% of
+    // cells catch the light at all), rather than one smooth ridge
+    // highlight -- this is what makes individual grains read as distinct
+    // instead of the surface looking like a flat sheet of MDF.
+    let grain_cell = floor(in.pos.xy * 0.9);
+    let grain_id = hash21(grain_cell);
+    let tilt = vec2<f32>(hash21(grain_cell + vec2<f32>(1.7, 0.0)) - 0.5, hash21(grain_cell + vec2<f32>(0.0, 3.1)) - 0.5);
+    let sparkle_normal = normalize(normal + vec3<f32>(tilt * 0.6, 0.0));
+    let half_dir = normalize(light_dir + vec3<f32>(0.0, 0.0, 1.0));
+    let spec = pow(max(dot(sparkle_normal, half_dir), 0.0), 40.0);
+    let sparkle_mask = step(0.9, grain_id);
+    color += vec3<f32>(1.0, 0.97, 0.85) * spec * sparkle_mask * 0.9;
+
+    // Fine per-pixel dither everywhere (including flat sand) so the
+    // background reads as countless individual grains rather than a
+    // smooth gradient.
     let grain = hash21(in.pos.xy);
-    color *= 0.9 + 0.2 * grain;
+    color *= 0.88 + 0.24 * grain;
+
     return vec4<f32>(color, 1.0);
 }
