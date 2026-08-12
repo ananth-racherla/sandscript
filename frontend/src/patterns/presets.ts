@@ -55,7 +55,7 @@ export const PRESETS: Preset[] = [
   { cat: '🐾 Animals', name: 'Mastan', desc: 'Labrador retriever', type: 'file', file: '/animals/mastan.gcode', sym: 1 },
   { cat: '🐾 Animals', name: 'Turtle', desc: 'Turtle', type: 'file', file: '/animals/turtle.gcode', sym: 1 },
   { cat: '🐾 Animals', name: 'Dolphin', desc: 'Leaping dolphin', type: 'file', file: '/animals/dolphin.gcode', sym: 1 },
-  { cat: '🐾 Animals', name: 'Seal', desc: 'Sea lion', type: 'file', file: '/animals/seal.gcode', sym: 1 },
+  { cat: '🐾 Animals', name: 'Seal', desc: 'Seal', type: 'file', file: '/animals/seal.gcode', sym: 1 },
 
   // ERASERS
   { cat: '🧹 Erasers', name: 'Rake', desc: '60 rows — fast, clean finish', type: 'raster', rows: 60, margin: 0.01 },
