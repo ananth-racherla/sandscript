@@ -77,6 +77,20 @@ export function filletCorners(rawPts: Pt[], radiusMM: number): Pt[] {
     }
 
     const sinHalf = Math.sin(interior / 2);
+    if (sinHalf < 1e-6) {
+      // interior ≈ 0: an (near-)exact 180° reversal, e.g. a thin spike or
+      // out-and-back stroke in fine detail linework. actualR/sinHalf below
+      // would be a 0/0 (or near-0/0) division producing a NaN circle
+      // center, which silently poisons every point downstream — Canvas2D
+      // drops individual NaN lineTo calls without erroring, but the NaN
+      // also propagates through cumulative arc-length distances used for
+      // playback/redraw, breaking rendering for the entire rest of the
+      // path with no visible error. A cusp this sharp can't be meaningfully
+      // rounded anyway (the two edges are anti-parallel), so leave it as a
+      // sharp corner instead.
+      out.push(B);
+      continue;
+    }
     const center: Pt = {
       x: B.x + (bx / bLen) * (actualR / sinHalf),
       y: B.y + (by / bLen) * (actualR / sinHalf),
