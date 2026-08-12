@@ -9,10 +9,14 @@ struct Params {
     grid_h: u32,
     ball_x: f32,
     ball_y: f32,
+    prev_ball_x: f32,
+    prev_ball_y: f32,
     dig_radius: f32,
     dig_strength: f32,
     relax_rate: f32,
-    _pad: f32,
+    _pad0: f32,
+    _pad1: f32,
+    _pad2: f32,
 }
 
 @group(0) @binding(0) var<uniform> params: Params;
@@ -25,18 +29,34 @@ fn idx(x: i32, y: i32) -> u32 {
     return u32(cy) * params.grid_w + u32(cx);
 }
 
-// Pass 1: carve a soft groove into height_in wherever the ball currently is.
-// In-place (reads and writes the same buffer) since each cell only depends
-// on its own value + the ball's uniform position, not on neighbors.
+// Shortest distance from p to the segment [a,b] -- used so a fast-moving
+// ball digs a continuous stroke along wherever it traveled *this frame*,
+// not just a stamp at its current position. Digging only the current point
+// left gaps ("spray paint" dots) whenever the ball moved more than one dig
+// radius between update() calls, which is the normal case at ordinary
+// mouse/ball speeds since dig_radius is small relative to typical
+// per-frame travel distance.
+fn dist_to_segment(p: vec2<f32>, a: vec2<f32>, b: vec2<f32>) -> f32 {
+    let ab = b - a;
+    let ab_len2 = dot(ab, ab);
+    var t = 0.0;
+    if (ab_len2 > 0.0001) {
+        t = clamp(dot(p - a, ab) / ab_len2, 0.0, 1.0);
+    }
+    return distance(p, a + ab * t);
+}
+
+// Pass 1: carve a soft groove into height_in along the ball's path this
+// frame. In-place (reads and writes the same buffer) since each cell only
+// depends on its own value + the ball's segment, not on neighbors.
 @compute @workgroup_size(8, 8)
 fn dig(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (gid.x >= params.grid_w || gid.y >= params.grid_h) {
         return;
     }
     let i = gid.y * params.grid_w + gid.x;
-    let dx = f32(gid.x) - params.ball_x;
-    let dy = f32(gid.y) - params.ball_y;
-    let d = sqrt(dx * dx + dy * dy);
+    let p = vec2<f32>(f32(gid.x), f32(gid.y));
+    let d = dist_to_segment(p, vec2<f32>(params.prev_ball_x, params.prev_ball_y), vec2<f32>(params.ball_x, params.ball_y));
     if (d < params.dig_radius) {
         // Smooth falloff (cosine bump) so the groove has soft shoulders
         // instead of a hard-edged cylinder.

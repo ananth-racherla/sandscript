@@ -40,10 +40,14 @@ struct Params {
     grid_h: u32,
     ball_x: f32,
     ball_y: f32,
+    prev_ball_x: f32,
+    prev_ball_y: f32,
     dig_radius: f32,
     dig_strength: f32,
     relax_rate: f32,
-    _pad: f32,
+    _pad0: f32,
+    _pad1: f32,
+    _pad2: f32,
 }
 
 #[wasm_bindgen]
@@ -73,6 +77,10 @@ pub struct SandSim {
     relax_bind_groups: [wgpu::BindGroup; 2], // [cur] = reads cur, writes 1-cur
     render_bind_groups: [wgpu::BindGroup; 2],
     cur: usize,
+    // Grid-space position from the previous update() call, so dig() can
+    // stroke the segment traveled this frame instead of only stamping the
+    // current point (see dig()'s dist_to_segment for why).
+    last_ball: (f32, f32),
 }
 
 #[wasm_bindgen]
@@ -362,6 +370,7 @@ pub async fn init_sim(canvas: HtmlCanvasElement) -> Result<SandSim, JsValue> {
         relax_bind_groups,
         render_bind_groups,
         cur: 0,
+        last_ball: (GRID_W as f32 * 0.5, GRID_H as f32 * 0.5),
     })
 }
 
@@ -369,11 +378,15 @@ pub async fn init_sim(canvas: HtmlCanvasElement) -> Result<SandSim, JsValue> {
 impl SandSim {
     /// `ball_x`/`ball_y` in normalized [0,1] table coordinates.
     pub fn update(&mut self, ball_x: f32, ball_y: f32) {
+        let bx = ball_x * GRID_W as f32;
+        let by = ball_y * GRID_H as f32;
         let params = Params {
             grid_w: GRID_W,
             grid_h: GRID_H,
-            ball_x: ball_x * GRID_W as f32,
-            ball_y: ball_y * GRID_H as f32,
+            ball_x: bx,
+            ball_y: by,
+            prev_ball_x: self.last_ball.0,
+            prev_ball_y: self.last_ball.1,
             dig_radius: 6.0,
             dig_strength: 0.15,
             // At 0.06 (the original value) the groove decayed to ~2.5% of
@@ -384,8 +397,11 @@ impl SandSim {
             // trail that persists and only slowly settles, not one that
             // vanishes shortly after the ball passes.
             relax_rate: 0.0015,
-            _pad: 0.0,
+            _pad0: 0.0,
+            _pad1: 0.0,
+            _pad2: 0.0,
         };
+        self.last_ball = (bx, by);
         self.queue
             .write_buffer(&self.params_buf, 0, bytemuck::bytes_of(&params));
 
