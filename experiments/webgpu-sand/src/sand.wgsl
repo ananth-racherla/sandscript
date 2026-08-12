@@ -76,18 +76,37 @@ struct VertexOut {
 
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOut {
-    // Fullscreen triangle trick: 3 vertices covering the viewport, no vertex
-    // buffer needed.
+    // Fullscreen triangle trick: a triangle *twice* the size of the
+    // viewport, so its hypotenuse falls entirely outside the visible
+    // clip region and every pixel in the viewport is covered by one
+    // single triangle face (get clipped down to the actual screen rect).
+    // The previous version used a viewport-sized triangle instead of an
+    // oversized one, which only covered half the canvas -- the visible
+    // "light brown triangle" bug.
+    var positions = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(3.0, -1.0),
+        vec2<f32>(-1.0, 3.0),
+    );
     var out: VertexOut;
-    let x = f32(i32(vi) - 1);
-    let y = f32(i32(vi & 1u) * 2 - 1);
-    out.pos = vec4<f32>(x, y, 0.0, 1.0);
-    out.uv = vec2<f32>((x + 1.0) * 0.5, 1.0 - (y + 1.0) * 0.5);
+    let p = positions[vi];
+    out.pos = vec4<f32>(p, 0.0, 1.0);
+    out.uv = vec2<f32>((p.x + 1.0) * 0.5, 1.0 - (p.y + 1.0) * 0.5);
     return out;
 }
 
 @group(0) @binding(0) var<uniform> render_params: Params;
 @group(0) @binding(1) var<storage, read> height_render: array<f32>;
+
+// Cheap per-pixel hash noise -- purely a function of screen position, so
+// it's stable frame to frame (no flicker) without needing a texture asset.
+// Used to dither the flat shaded gradient into something that reads as
+// individual glinting grains rather than smooth plastic.
+fn hash21(p: vec2<f32>) -> f32 {
+    var p3 = fract(vec3<f32>(p.x, p.y, p.x) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
 
 fn sample_height(uv: vec2<f32>) -> f32 {
     let gx = clamp(i32(uv.x * f32(render_params.grid_w)), 0, i32(render_params.grid_w) - 1);
@@ -110,12 +129,19 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
     // Warm sand base color, darkened inside grooves (negative height) so
     // dug lines read as depressions, plus a tight specular term so grains
-    // along groove edges catch a highlight like real raked sand.
+    // along groove edges catch a highlight like real raked sand. h is <=0
+    // in a groove and 0 on flat sand, so the mix factor must *increase*
+    // with h (a positive coefficient) to go dark as h goes negative --
+    // the previous negative coefficient did the opposite, making dug
+    // grooves render *lighter* than the surrounding flat sand (the
+    // "puff of smoke" bug).
     let h = sample_height(in.uv);
-    let base = mix(vec3<f32>(0.30, 0.22, 0.12), vec3<f32>(0.62, 0.50, 0.30), clamp(h * -0.4 + 0.5, 0.0, 1.0));
+    let base = mix(vec3<f32>(0.30, 0.22, 0.12), vec3<f32>(0.62, 0.50, 0.30), clamp(h * 0.6 + 0.5, 0.0, 1.0));
     let half_dir = normalize(light_dir + vec3<f32>(0.0, 0.0, 1.0));
     let spec = pow(max(dot(normal, half_dir), 0.0), 24.0);
 
-    let color = base * (0.35 + 0.65 * diffuse) + vec3<f32>(1.0, 0.95, 0.8) * spec * 0.5;
+    var color = base * (0.35 + 0.65 * diffuse) + vec3<f32>(1.0, 0.95, 0.8) * spec * 0.5;
+    let grain = hash21(in.pos.xy);
+    color *= 0.9 + 0.2 * grain;
     return vec4<f32>(color, 1.0);
 }
