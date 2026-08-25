@@ -199,7 +199,13 @@ fn parse_points(raw: &str) -> Option<Vec<Pt>> {
     if nums.len() < 4 {
         return None;
     }
-    Some(nums.chunks_exact(2).map(|c| Pt::new(c[0], c[1])).collect())
+    Some(
+        nums.as_chunks::<2>()
+            .0
+            .iter()
+            .map(|c| Pt::new(c[0], c[1]))
+            .collect(),
+    )
 }
 
 fn sample_rect(node: &roxmltree::Node, spu: f64) -> Option<Vec<Pt>> {

@@ -3,6 +3,7 @@ import { usePatternStore } from '../../store/patternStore';
 import { useTableStore } from '../../store/tableStore';
 import { filletCorners } from '../../lib/geometry/fillet';
 import { cumulativeDistances, indexAtDistance } from '../../lib/geometry/arcLength';
+import { track } from '../../lib/analytics';
 import type { Pt, TableBounds } from '../../lib/types';
 import { DownloadButton } from './DownloadButton';
 import { SendToPrinterButton } from '../print/SendToPrinterButton';
@@ -308,6 +309,8 @@ export function PreviewCanvas() {
 
   function play() {
     if (!ptsRef.current.length) return;
+    const { currentName, activeSource } = usePatternStore.getState();
+    track('play_started', { name: currentName, source: activeSource ?? 'unknown' });
     if (progressRef.current >= 1) {
       progressRef.current = 0;
       lastDrawnRef.current = 0;

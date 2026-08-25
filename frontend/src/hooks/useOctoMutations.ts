@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { fetchVersion, sendCommand, connectSerial as connectSerialApi, uploadFile } from '../lib/octoprint/client';
 import { useOctoprintStore, type QueueItem } from '../store/octoprintStore';
+import { track } from '../lib/analytics';
 
 export function useOctoMutations() {
   const connect = useCallback(async () => {
@@ -15,6 +16,7 @@ export function useOctoMutations() {
       store.setServerName(v.server);
       store.setConnectedIntent(true);
       store.clearLog();
+      track('octoprint_connected');
     } catch {
       const store = useOctoprintStore.getState();
       store.setConnected(false);
@@ -52,6 +54,7 @@ export function useOctoMutations() {
       await uploadFile({ baseUrl: s.baseUrl, apiKey: s.apiKey }, name, gcode, startPrint);
       s.cacheGcode(name, gcode);
       s.addLog(startPrint ? `▶ Printing: ${name}` : `✓ Uploaded: ${name}`, '#4a8');
+      if (startPrint) track('print_sent', { name });
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

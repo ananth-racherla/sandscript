@@ -3,6 +3,7 @@ import { PRESETS, buildGcodeFromPreset, type Preset } from '../../patterns/prese
 import { usePatternStore } from '../../store/patternStore';
 import { useTableStore } from '../../store/tableStore';
 import { useDraftValue } from '../../hooks/useDraftValue';
+import { track } from '../../lib/analytics';
 import { PresetCard } from './PresetCard';
 
 const CATEGORIES = [...new Set(PRESETS.map((p) => p.cat))];
@@ -36,6 +37,7 @@ export function GalleryPanel() {
   // "who regenerates on table resize" from Custom just by being the last
   // tab navigated to, even if Custom's pattern is the one currently shown.
   async function selectPreset(preset: Preset) {
+    track('gallery_item_selected', { preset: preset.name });
     setGallerySelection({ presetName: preset.name, sym: preset.sym ?? 1 });
     usePatternStore.getState().setRegenerator(regenerateFromSelection);
     await regenerateFromSelection();
