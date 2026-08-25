@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/ananth-racherla/sandscript/actions/workflows/ci.yml/badge.svg)](https://github.com/ananth-racherla/sandscript/actions/workflows/ci.yml)
 
+**Live site: [sandscript.org](https://sandscript.org)**
+
 A pattern generator for the Kinetic Sand Art Coffee Table.  Inspired by https://www.diymachines.co.uk/kinetic-sand-art-coffee-table-self-drawing
 
 The goal for this project was to curate some patterns that well with the sandtable. And importantly allow the ability to preview the patterns.
