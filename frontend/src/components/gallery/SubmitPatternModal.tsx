@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { track } from '../../lib/analytics';
+import { wasm } from '../../lib/wasmClient';
 
 const inputCls =
   'w-full rounded border border-input-border bg-input px-2 py-1 text-[0.78rem] text-ink focus:border-accent-border focus:outline-none';
@@ -71,6 +72,18 @@ export function SubmitPatternModal({ onClose }: { onClose: () => void }) {
   async function handleFile(file: File | undefined) {
     if (!file) return;
     const content = await file.text();
+    setGcodeFile(null);
+    try {
+      // Validates against the real Rust parser (same one the app uses to
+      // read/generate patterns) rather than a JS approximation of the
+      // dialect — epsilon 0 so this only parses + dedupes, no simplification.
+      wasm.optimizeGcode(content, 0);
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      setStatus({ kind: 'error', message: `That doesn't look like a G-code file (${reason}).` });
+      return;
+    }
+    setStatus({ kind: 'idle' });
     setGcodeFile({ name: file.name, content });
   }
 
