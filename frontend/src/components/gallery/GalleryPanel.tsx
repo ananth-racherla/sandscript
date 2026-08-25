@@ -1,16 +1,18 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { PRESETS, buildGcodeFromPreset, type Preset } from '../../patterns/presets';
 import { usePatternStore } from '../../store/patternStore';
 import { useTableStore } from '../../store/tableStore';
 import { useDraftValue } from '../../hooks/useDraftValue';
 import { track } from '../../lib/analytics';
 import { PresetCard } from './PresetCard';
+import { SubmitPatternModal } from './SubmitPatternModal';
 
 const CATEGORIES = [...new Set(PRESETS.map((p) => p.cat))];
 
 export function GalleryPanel() {
   const gallerySelection = usePatternStore((s) => s.gallerySelection);
   const setGallerySelection = usePatternStore((s) => s.setGallerySelection);
+  const [submitOpen, setSubmitOpen] = useState(false);
 
   // Reads gallerySelection fresh via getState() every time it runs (rather
   // than closing over a specific preset/sym) so that once registered as
@@ -93,7 +95,17 @@ export function GalleryPanel() {
           Repeats the selected pattern N times evenly around the center, like a kaleidoscope. Updates the pattern above as you move
           it.
         </div>
+        <button
+          onClick={() => {
+            track('submit_pattern_clicked');
+            setSubmitOpen(true);
+          }}
+          className="mt-2.5 block w-full text-center text-[0.7rem] text-accent hover:underline"
+        >
+          + Submit a pattern
+        </button>
       </div>
+      {submitOpen && <SubmitPatternModal onClose={() => setSubmitOpen(false)} />}
     </div>
   );
 }

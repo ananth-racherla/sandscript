@@ -2,6 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sandscript",
   "compatibility_date": "2026-08-08",
+  // Runs worker/index.ts for /api/* before falling through to static
+  // assets — everything else still resolves as assets-first (see below),
+  // so this doesn't change how the SPA itself is served.
+  "main": "worker/index.ts",
   "assets": {
     // Vite's build output — see package.json's "build" script.
     "directory": "./dist",
@@ -9,6 +13,12 @@
     // direct load of e.g. /custom or /print has no matching static file.
     // This tells Workers to fall back to index.html for those, same as
     // any other client-side-routed SPA needs from its host.
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // Lets worker/index.ts delegate non-API requests to the static build.
+    "binding": "ASSETS",
+    // Runs worker/index.ts for /api/* before falling through to assets —
+    // everything else still resolves assets-first, so this doesn't change
+    // how the SPA itself is served.
+    "run_worker_first": ["/api/*"]
   }
 }
