@@ -4,11 +4,14 @@ import { track } from '../../lib/analytics';
 const inputCls =
   'w-full rounded border border-input-border bg-input px-2 py-1 text-[0.78rem] text-ink focus:border-accent-border focus:outline-none';
 
-// Cloudflare's documented "always passes" test site key — used only as a
-// local-dev fallback so the form works before a real key is configured via
-// VITE_TURNSTILE_SITE_KEY. Never valid against the production siteverify check.
-const TURNSTILE_TEST_SITE_KEY = '1x00000000000000000000AA';
-const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || TURNSTILE_TEST_SITE_KEY;
+// Turnstile site keys are public by design (like a Stripe publishable key —
+// safe to ship in client code), so the real one is committed here directly.
+// VITE_TURNSTILE_SITE_KEY can still override it — e.g. for local dev, set it
+// to Cloudflare's documented "always passes" test key ('1x00000000000000000000AA'),
+// since this widget is registered to the production domain and may not
+// validate from localhost.
+const PRODUCTION_SITE_KEY = '0x4AAAAAAEcFRQ-A01-nWMg0';
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || PRODUCTION_SITE_KEY;
 
 declare global {
   interface Window {

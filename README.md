@@ -65,13 +65,12 @@ Clicking "+ Submit a pattern" in the Gallery posts to `/api/submit-pattern` (`fr
 
 One-time setup (each of these is an account action only the site owner can do — not something set from code):
 1. **GitHub token** — create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) scoped to just this repo, with **Repository permissions → Issues: Read and write**, plus **Account permissions → Gists: Read and write**.
-2. **Turnstile widget** — in the Cloudflare dashboard, go to Turnstile → Add widget, for the `sandscript.org` domain. Note the **Site key** and **Secret key**.
+2. **Turnstile widget** — in the Cloudflare dashboard, go to Turnstile → Add widget, for the `sandscript.org` domain. Note the **Site key** and **Secret key**. The Site key is public and already committed in `SubmitPatternModal.tsx` — no dashboard build variable needed for it.
 3. **Set the secrets** (from `frontend/`):
    ```
    npx wrangler secret put GITHUB_TOKEN
    npx wrangler secret put TURNSTILE_SECRET_KEY
    ```
-4. **Set the site key** as a build environment variable in the Cloudflare dashboard (Settings → Build → Variables): `VITE_TURNSTILE_SITE_KEY` = the Site key from step 2. Without it, the form falls back to Turnstile's public "always passes" test key — fine for local dev, not for production.
 
 Local testing needs `wrangler dev` (which runs the Worker) rather than `npm run dev` (which is Vite only and won't have `/api/*`) — run `npx wrangler dev` from `frontend/` against a local build, or point the form at a deployed preview.
 
