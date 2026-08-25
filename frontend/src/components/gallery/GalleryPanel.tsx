@@ -93,6 +93,15 @@ export function GalleryPanel() {
           Repeats the selected pattern N times evenly around the center, like a kaleidoscope. Updates the pattern above as you move
           it.
         </div>
+        <a
+          href="https://github.com/ananth-racherla/sandscript/issues/new?template=pattern_submission.yml&labels=pattern-submission"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => track('submit_pattern_clicked')}
+          className="mt-2.5 block text-center text-[0.7rem] text-accent hover:underline"
+        >
+          + Submit a pattern
+        </a>
       </div>
     </div>
   );

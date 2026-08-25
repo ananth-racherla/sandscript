@@ -8,6 +8,10 @@ The goal for this project was to curate some patterns that well with the sandtab
 
 The project also is designed to interact with a local Octoprint server via API. Connecting to local server requires an API key that can be obtained from the octoprint page by navigating to `Settings->API->Global API Key`
 
+## Community patterns
+
+Have a pattern worth sharing? Click "+ Submit a pattern" on the Gallery tab, or [open a pattern submission issue](https://github.com/ananth-racherla/sandscript/issues/new?template=pattern_submission.yml&labels=pattern-submission) directly — attach the `.gcode` file and a short description. Others can 👍 the issue to signal it's worth adding to the gallery.
+
 
 ## Quick start
 

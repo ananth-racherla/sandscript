@@ -1,0 +1,37 @@
+name: Pattern submission
+description: Share a G-code pattern to be considered for the gallery
+title: "[Pattern] "
+labels: ["pattern-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing a pattern! Drag your `.gcode` file into the last box below — GitHub attaches it to the issue automatically. Other people can 👍 this issue to show it's worth adding.
+  - type: input
+    id: name
+    attributes:
+      label: Pattern name
+      placeholder: e.g. Dolphin
+    validations:
+      required: true
+  - type: input
+    id: category
+    attributes:
+      label: Category
+      placeholder: e.g. Animals, Geometric, Fractal
+    validations:
+      required: false
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: What is it, and anything worth knowing about how it draws
+    validations:
+      required: false
+  - type: textarea
+    id: gcode
+    attributes:
+      label: G-code file
+      description: Drag and drop your .gcode file here, or paste a link to it
+    validations:
+      required: true
