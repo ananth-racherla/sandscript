@@ -57,4 +57,7 @@ jobs:
 
       - run: npm ci
 
+      - name: Type check (app + worker)
+        run: npx tsc -b
+
       - run: npm run lint

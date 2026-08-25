@@ -10,7 +10,7 @@ The project also is designed to interact with a local Octoprint server via API. 
 
 ## Community patterns
 
-Have a pattern worth sharing? Click "+ Submit a pattern" on the Gallery tab, or [open a pattern submission issue](https://github.com/ananth-racherla/sandscript/issues/new?template=pattern_submission.yml&labels=pattern-submission) directly — attach the `.gcode` file and a short description. Others can 👍 the issue to signal it's worth adding to the gallery.
+Have a pattern worth sharing? Click "+ Submit a pattern" on the Gallery tab — it files a GitHub issue for you automatically (see [Pattern submissions](#pattern-submissions-backend) below). Prefer to do it by hand instead? [Open a pattern submission issue](https://github.com/ananth-racherla/sandscript/issues/new?template=pattern_submission.yml&labels=pattern-submission) directly. Either way, others can 👍 the issue to signal it's worth adding to the gallery.
 
 
 ## Quick start
@@ -50,7 +50,7 @@ cargo test
 
 ## Deploying (Cloudflare Workers)
 
-The app deploys as a Cloudflare Workers static-assets site (`frontend/wrangler.jsonc`) — no server-side script, since everything runs client-side (React + WASM in the browser). Cloudflare's Git-connected Workers Builds don't have Rust/cargo/wasm-pack in their build image, so **`frontend/src/wasm/` (the compiled WASM output) is checked into git**, and the Cloudflare build uses `npm run build:deploy` instead of `npm run build` — same type-check + Vite build, just without the `wasm-pack` rebuild step that only works where Rust is installed.
+The app deploys as a Cloudflare Workers site (`frontend/wrangler.jsonc`): mostly static assets (React + WASM run client-side), plus one small Worker script (`frontend/worker/index.ts`) that only handles `/api/*` — currently just `/api/submit-pattern` (see [Pattern submissions backend](#pattern-submissions-backend)). Everything else is still served straight from the static build. Cloudflare's Git-connected Workers Builds don't have Rust/cargo/wasm-pack in their build image, so **`frontend/src/wasm/` (the compiled WASM output) is checked into git**, and the Cloudflare build uses `npm run build:deploy` instead of `npm run build` — same type-check + Vite build, just without the `wasm-pack` rebuild step that only works where Rust is installed.
 
 **This means:** if you change anything under `src/` (the Rust crate), run `npm run wasm:build` from `frontend/` and commit the resulting changes in `frontend/src/wasm/` — otherwise the Cloudflare deploy will keep shipping the old compiled pattern logic even though the Rust source has moved on. `npm run dev` and `npm run build` (used for local work) always rebuild it fresh, so this only bites the deployed build if the rebuild isn't committed.
 
@@ -58,6 +58,22 @@ Cloudflare dashboard build settings (Settings → Build):
 - **Root directory**: `frontend` (no leading slash)
 - **Build command**: `npm run build:deploy`
 - **Deploy command**: default (`npx wrangler deploy`)
+
+### Pattern submissions backend
+
+Clicking "+ Submit a pattern" in the Gallery posts to `/api/submit-pattern` (`frontend/worker/index.ts`), which: verifies a Cloudflare Turnstile token, uploads the `.gcode` file as a secret Gist, and files a labeled (`pattern-submission`) GitHub issue linking to it — all server-side, so no GitHub account or write access is exposed to visitors.
+
+One-time setup (each of these is an account action only the site owner can do — not something set from code):
+1. **GitHub token** — create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) scoped to just this repo, with **Repository permissions → Issues: Read and write**, plus **Account permissions → Gists: Read and write**.
+2. **Turnstile widget** — in the Cloudflare dashboard, go to Turnstile → Add widget, for the `sandscript.org` domain. Note the **Site key** and **Secret key**.
+3. **Set the secrets** (from `frontend/`):
+   ```
+   npx wrangler secret put GITHUB_TOKEN
+   npx wrangler secret put TURNSTILE_SECRET_KEY
+   ```
+4. **Set the site key** as a build environment variable in the Cloudflare dashboard (Settings → Build → Variables): `VITE_TURNSTILE_SITE_KEY` = the Site key from step 2. Without it, the form falls back to Turnstile's public "always passes" test key — fine for local dev, not for production.
+
+Local testing needs `wrangler dev` (which runs the Worker) rather than `npm run dev` (which is Vite only and won't have `/api/*`) — run `npx wrangler dev` from `frontend/` against a local build, or point the form at a deployed preview.
 
 # Key components
 - `src/` — a Rust crate that generates the actual patterns (math curves,
@@ -70,4 +86,7 @@ Cloudflare dashboard build settings (Settings → Build):
 - `animals/` — a couple of hand-picked G-code files (a labrador, a turtle),
   copied into `frontend/public/animals/` and used as gallery presets
   alongside the generated patterns.
+- `frontend/worker/` — the one server-side piece: a small Cloudflare Worker
+  handling `/api/submit-pattern` for community pattern submissions (see
+  [Pattern submissions backend](#pattern-submissions-backend)).
 
