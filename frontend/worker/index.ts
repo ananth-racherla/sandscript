@@ -53,9 +53,8 @@ async function handleSubmitPattern(request: Request, env: Env): Promise<Response
   if (new TextEncoder().encode(gcode).length > MAX_GCODE_BYTES) {
     return json({ error: `G-code file is too large (max ${MAX_GCODE_BYTES / (1024 * 1024)}MB)` }, 400);
   }
-  if (!/\bG0?1\b/.test(gcode)) {
-    return json({ error: "That doesn't look like a G-code file" }, 400);
-  }
+  const gcodeCheck = validateGcode(gcode);
+  if (!gcodeCheck.ok) return json({ error: gcodeCheck.reason }, 400);
 
   const verified = await verifyTurnstile(body.turnstileToken, request, env);
   if (!verified) return json({ error: 'Verification failed — please try again' }, 400);
@@ -135,6 +134,32 @@ async function createIssue(env: Env, params: { name: string; category: string; d
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'pattern';
+}
+
+// Matches the dialect this project actually emits/reads — see ptsToGcode /
+// parseGcode in frontend/src/lib/gcode.ts: a ';'-comment header followed by
+// nothing but `G1 X<num> Y<num>` moves (no Z, no arcs, no other G-codes —
+// this table only has two axes). Keep in sync with that regex.
+const MOVE_LINE_RE = /^G1\s+X[+-]?\d+\.?\d*\s+Y[+-]?\d+\.?\d*\s*$/;
+const MIN_MOVES = 2; // a path needs at least two points
+const MIN_MOVE_FRACTION = 0.9; // tolerate a few odd lines, not a file that's mostly something else
+
+function validateGcode(text: string): { ok: true } | { ok: false; reason: string } {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith(';'));
+  if (lines.length === 0) {
+    return { ok: false, reason: "That doesn't look like a G-code file — no content found." };
+  }
+  const moveLines = lines.filter((l) => MOVE_LINE_RE.test(l));
+  if (moveLines.length < MIN_MOVES) {
+    return { ok: false, reason: "That doesn't look like a sandscript G-code file (expected G1 X.. Y.. moves)." };
+  }
+  if (moveLines.length / lines.length < MIN_MOVE_FRACTION) {
+    return { ok: false, reason: 'File has too many lines that are not G1 X.. Y.. moves — is this the right file?' };
+  }
+  return { ok: true };
 }
 
 function json(data: unknown, status = 200): Response {
